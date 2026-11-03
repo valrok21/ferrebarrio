@@ -13,7 +13,7 @@ x-app: &app
     REDIS_URL: redis://redis:6379
     EMAIL_HOST: mailpit
     EMAIL_PORT: "1025"
-    SITIO_URL: http://localhost:${WEB_PORT:-8000}
+    SITIO_URL: http://127.0.0.1:${WEB_PORT:-8000}
   depends_on:
     db: {condition: service_healthy}
     redis: {condition: service_started}
