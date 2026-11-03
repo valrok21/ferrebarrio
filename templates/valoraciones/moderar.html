@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block titulo %}Moderar valoraciones{% endblock %}
+{% block contenido %}
+<h1 class="h3">Valoraciones por moderar</h1>
+<table class="table bg-white align-middle">
+  <thead><tr><th>Ferretería</th><th>Puntaje</th><th>Comentario</th><th>Fecha</th><th></th></tr></thead>
+  <tbody>{% for v in pendientes %}<tr>
+    <td>{{ v.comercio }}</td><td>★ {{ v.puntaje }}</td><td>{{ v.comentario }}</td><td class="small">{{ v.creada_en|date:"d/m H:i" }}</td>
+    <td class="text-nowrap"><form method="post" action="{% url 'valoraciones:resolver' v.pk %}" class="d-inline">{% csrf_token %}
+      <button name="accion" value="aprobar" class="btn btn-sm btn-success">Publicar</button>
+      <button name="accion" value="rechazar" class="btn btn-sm btn-outline-danger">Rechazar</button></form></td>
+  </tr>{% empty %}<tr><td colspan="5" class="text-muted">No hay valoraciones pendientes.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}
