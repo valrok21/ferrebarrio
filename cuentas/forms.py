@@ -8,22 +8,18 @@ from django.utils import timezone
 from .models import Usuario
 
 MAX_FALLOS = 5
-# ponytail: tope por IP alto porque con CGNAT móvil muchos vecinos comparten IP; si hay ataques
-# distribuidos, captcha o límite en el proxy.
-MAX_FALLOS_IP = 100  # una IP que prueba muchos correos distintos
 VENTANA_BLOQUEO = 15 * 60
 DOMINIO_ANONIMO = "ferrebarrio.invalid"  # lo usa eliminar_cuenta; nadie puede registrarlo
 
 
 def _claves_bloqueo(email, ip):
-    return [
-        (f"login-fallos:{(email or '').strip().lower()}:{ip}", MAX_FALLOS),
-        (f"login-fallos-ip:{ip}", MAX_FALLOS_IP),
-    ]
+    # ponytail: sin contador solo por IP; detrás de un proxy todos comparten REMOTE_ADDR y bloquearía
+    # el ingreso de todo el sitio. Contra el rociado de contraseñas: límite o captcha en el proxy.
+    return [(f"login-fallos:{(email or '').strip().lower()}:{ip}", MAX_FALLOS)]
 
 
 class IngresoForm(AuthenticationForm):
-    """Login por correo con bloqueo de 15 minutos tras 5 fallos por correo + IP o 100 por IP."""
+    """Login por correo con bloqueo de 15 minutos tras 5 fallos por correo + IP."""
 
     username = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"autofocus": True}))
     error_messages = {

@@ -69,25 +69,6 @@ def test_admin_tecnico_deja_entrar_al_staff_y_no_a_un_cliente(crear, client):
     assert r.status_code == 302 and client.session["_auth_user_id"] == str(staff.pk)
 
 
-def test_bloqueo_por_ip_con_muchos_correos(crear, client, monkeypatch):
-    monkeypatch.setattr("cuentas.forms.MAX_FALLOS_IP", 3)
-    victima = crear.usuario()
-    for n in range(3):
-        client.post("/cuentas/ingresar/", {"username": f"x{n}@prueba.cl", "password": "mala"})
-    r = client.post("/cuentas/ingresar/", {"username": victima.email, "password": CLAVE})
-    assert "Demasiados intentos" in r.content.decode() and "_auth_user_id" not in client.session
-
-
-def test_fallos_bajo_el_tope_por_ip_no_bloquean(crear, client, monkeypatch):
-    monkeypatch.setattr("cuentas.forms.MAX_FALLOS_IP", 3)
-    usuario = crear.usuario()
-    for n in range(2):
-        client.post("/cuentas/ingresar/", {"username": f"x{n}@prueba.cl", "password": "mala"})
-    assert (
-        client.post("/cuentas/ingresar/", {"username": usuario.email, "password": CLAVE}).status_code == 302
-    )
-
-
 def test_poblar_demo_no_corre_sin_debug(db, settings):
     settings.DEBUG = False
     with pytest.raises(CommandError):
