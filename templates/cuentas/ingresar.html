@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block titulo %}Ingresar{% endblock %}
+{% block contenido %}{% url 'cuentas:registro' as url_registro %}
+{% include "includes/form_card.html" with titulo="Ingresar" boton="Ingresar" %}
+<p class="text-center mt-3 small">¿No tienes cuenta? <a href="{{ url_registro }}">Crea una</a>.</p>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block titulo %}Crear cuenta{% endblock %}
+{% block contenido %}
+{% include "includes/form_card.html" with titulo="Crear cuenta" boton="Crear cuenta" %}
+<p class="text-center mt-3 small">Lee la <a href="{% url 'cuentas:privacidad' %}" target="_blank">política de privacidad</a> y los <a href="{% url 'cuentas:terminos' %}" target="_blank">términos de uso</a>.</p>
+{% endblock %}

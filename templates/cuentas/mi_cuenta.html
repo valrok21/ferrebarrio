@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block titulo %}Mi cuenta{% endblock %}
+{% block contenido %}
+{% include "includes/form_card.html" with titulo="Mi cuenta" boton="Guardar" %}
+<p class="text-center mt-3 small text-muted">Correo: {{ user.email }}
+{% if user.es_cliente %} · <a class="text-danger" href="{% url 'cuentas:eliminar' %}">Eliminar mi cuenta</a>{% endif %}</p>
+{% endblock %}
