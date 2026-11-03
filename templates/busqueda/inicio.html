@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% load humanize %}{% block titulo %}Buscar{% endblock %}
+{% block cabecera %}{% include "includes/leaflet.html" %}{% endblock %}
+{% block contenido %}
+<div class="text-center mb-4">
+  <h1 class="h2">¿Qué necesitas para tu arreglo?</h1>
+  <p class="text-muted">Encuentra el producto en las ferreterías de tu barrio y resérvalo para retirar hoy.</p>
+</div>
+<form method="get" class="card card-body shadow-sm mb-4 fb-form" id="form-busqueda" novalidate>
+  {{ form.non_field_errors }}
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4">{{ form.q.label_tag }} {{ form.q }}{{ form.q.errors }}</div>
+    <div class="col-md-3">{{ form.categoria.label_tag }} {{ form.categoria }}</div>
+    <div class="col-md-2">{{ form.comuna.label_tag }} {{ form.comuna }}</div>
+    <div class="col-md-1">{{ form.radio.label_tag }} {{ form.radio }}</div>
+    <div class="col-md-2 d-grid gap-1">{{ form.lat }}{{ form.lon }}
+      <button class="btn btn-primary">Buscar</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="mi-ubicacion">📍 Usar mi ubicación</button>
+    </div>
+  </div>
+</form>
+{% if resultados is not None %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <p class="text-muted">{{ resultados|length }} resultado{{ resultados|pluralize }} a menos de {{ form.cleaned_data.radio }} km.</p>
+    <table class="table bg-white align-middle">
+      <thead><tr><th>Producto</th><th>Ferretería</th><th class="text-end">Distancia</th><th class="text-end">Precio referencial</th><th>Stock</th><th></th></tr></thead>
+      <tbody>{% for p in resultados %}<tr>
+        <td>{{ p.nombre }} <span class="text-muted small">/ {{ p.get_unidad_display }}</span></td>
+        <td><a href="{% url 'comercios:ficha' p.comercio.pk %}">{{ p.comercio.nombre }}</a>{% if p.promedio %} <span class="small text-warning">★ {{ p.promedio|floatformat:1 }}</span>{% endif %}</td>
+        <td class="text-end">{{ p.distancia.km|floatformat:1 }} km</td>
+        <td class="text-end">${{ p.precio_referencial|intcomma }}</td>
+        <td>{% include "includes/marca_stock.html" with producto=p %}</td>
+        <td>{% if p.stock_disponible > 0 %}<a class="btn btn-sm btn-primary" href="{% url 'reservas:nueva' p.pk %}">Reservar</a>{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="6" class="text-muted">No encontramos «{{ form.cleaned_data.q }}» cerca. Prueba otro término o un radio mayor.</td></tr>{% endfor %}</tbody>
+    </table>
+    <p class="small text-muted">Precios referenciales informados por cada local (Ley 19.496): el precio final se confirma al retirar. «POR CONFIRMAR»: el local no actualiza el stock hace más de 72 h.</p>
+  </div>
+  <div class="col-lg-5"><div id="mapa" class="mapa"></div></div>
+</div>
+{{ marcadores|json_script:"marcadores" }}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+  document.getElementById('mi-ubicacion').addEventListener('click', () => {
+    if (!navigator.geolocation) return alert('Tu navegador no permite ubicación: elige una comuna.');
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('id_lat').value = pos.coords.latitude.toFixed(5);
+      document.getElementById('id_lon').value = pos.coords.longitude.toFixed(5);
+      document.getElementById('form-busqueda').submit();
+    }, () => alert('No pudimos obtener tu ubicación: elige una comuna.'));
+  });
+  {% if resultados is not None %}
+  const mapa = fbMapa('mapa', {{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}, 14);
+  L.circle([{{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}], {radius: {{ radio_m }}, fillOpacity: .05}).addTo(mapa);
+  for (const c of JSON.parse(document.getElementById('marcadores').textContent)) {
+    const enlace = document.createElement('a'); enlace.href = c.url; enlace.textContent = c.nombre;
+    L.marker([c.lat, c.lon]).addTo(mapa).bindPopup(enlace);
+  }
+  {% endif %}
+</script>{% endblock %}
