@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block titulo %}Producto{% endblock %}
+{% block contenido %}
+{% if producto.pk %}{% include "includes/form_card.html" with titulo="Editar producto" boton="Guardar" %}
+{% else %}{% include "includes/form_card.html" with titulo="Nuevo producto" boton="Agregar" %}{% endif %}
+{% if producto.pk and producto.stock_reservado %}<p class="text-center small text-muted mt-2">Hay {{ producto.stock_reservado }} unidad{{ producto.stock_reservado|pluralize:"es" }} reservada{{ producto.stock_reservado|pluralize }} aparte del disponible.</p>{% endif %}
+{% endblock %}

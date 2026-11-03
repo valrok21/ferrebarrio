@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% load humanize %}{% block titulo %}Catálogo{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="h3 mb-0">Catálogo de {{ request.comercio.nombre }}</h1>
+  <a class="btn btn-primary" href="{% url 'catalogo:nuevo' %}">Agregar producto</a>
+</div>
+{% if desactualizados %}<div class="alert alert-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} sin actualizar hace más de 72 h: se muestra{{ desactualizados|pluralize:"n" }} como «POR CONFIRMAR». Edítalo{{ desactualizados|pluralize }} o vuelve a cargar la planilla.</div>{% endif %}
+<div class="card mb-4"><div class="card-body">
+  <h2 class="h6">Carga masiva</h2>
+  <form method="post" action="{% url 'catalogo:planilla' %}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">{% csrf_token %}
+    <input type="file" name="archivo" accept=".xlsx" class="form-control w-auto" required>
+    <button class="btn btn-outline-primary">Subir planilla</button>
+    <a href="{% url 'catalogo:plantilla' %}" class="small">Descargar plantilla</a>
+  </form>
+  {% if carga %}<p class="small text-muted mt-2 mb-0">Última carga ({{ carga.fecha|date:"d/m H:i" }}, {{ carga.archivo }}): {{ carga.resumen }}</p>{% endif %}
+</div></div>
+<table class="table table-sm bg-white">
+  <thead><tr><th>Producto</th><th>Categoría</th><th class="text-end">Precio ref.</th><th class="text-end">Disponible</th><th class="text-end">Reservado</th><th>Marca</th><th>Actualizado</th><th></th></tr></thead>
+  <tbody>{% for p in productos %}<tr>
+    <td>{{ p.nombre }} <span class="text-muted small">/ {{ p.get_unidad_display }}</span></td><td>{{ p.categoria }}</td>
+    <td class="text-end">${{ p.precio_referencial|intcomma }}</td><td class="text-end">{{ p.stock_disponible }}</td><td class="text-end">{{ p.stock_reservado }}</td>
+    <td>{% include "includes/marca_stock.html" with producto=p %}</td><td class="small">{{ p.actualizado_en|date:"d/m H:i" }}</td>
+    <td class="text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="{% url 'catalogo:editar' p.pk %}">Editar</a>
+      <form method="post" action="{% url 'catalogo:eliminar' p.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Quitar</button></form></td>
+  </tr>{% empty %}<tr><td colspan="8" class="text-muted">Aún no tienes productos. Agrégalos uno a uno o sube la planilla.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}
