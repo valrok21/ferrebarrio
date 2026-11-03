@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% load humanize %}{% block titulo %}{{ comercio.nombre }}{% endblock %}
+{% block cabecera %}{% include "includes/leaflet.html" %}{% endblock %}
+{% block contenido %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <h1 class="h3">{{ comercio.nombre }} <span class="badge text-bg-success fs-6">Verificada</span></h1>
+    <p class="mb-1">{{ comercio.direccion }}, {{ comercio.comuna }}</p>
+    <p class="mb-1">Horario: {{ comercio.horario }}</p>
+    <p class="mb-1">Teléfono: <a href="tel:{{ comercio.telefono }}">{{ comercio.telefono }}</a></p>
+    <p>{% if resumen.total %}★ {{ resumen.promedio|floatformat:1 }} ({{ resumen.total }} valoraci{{ resumen.total|pluralize:"ón,ones" }}){% else %}Sin valoraciones aún{% endif %}</p>
+    <div id="mapa" class="mapa"></div>
+    {% if comentarios %}<h2 class="h5 mt-4">Comentarios</h2>
+      {% for v in comentarios %}<blockquote class="border-start ps-2 small">★ {{ v.puntaje }} — {{ v.comentario }}<br><span class="text-muted">{{ v.creada_en|date:"d/m/Y" }}</span></blockquote>{% endfor %}
+    {% endif %}
+  </div>
+  <div class="col-lg-7">
+    <h2 class="h5">Catálogo</h2>
+    <table class="table table-sm bg-white">
+      <thead><tr><th>Producto</th><th>Categoría</th><th class="text-end">Precio ref.</th><th>Stock</th><th></th></tr></thead>
+      <tbody>{% for p in productos %}<tr>
+        <td>{{ p.nombre }} <span class="text-muted small">/ {{ p.get_unidad_display }}</span></td><td>{{ p.categoria }}</td>
+        <td class="text-end">${{ p.precio_referencial|intcomma }}</td>
+        <td>{% include "includes/marca_stock.html" with producto=p %}</td>
+        <td>{% if p.stock_disponible > 0 %}<a class="btn btn-sm btn-outline-primary" href="{% url 'reservas:nueva' p.pk %}">Reservar</a>{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="5" class="text-muted">Sin productos publicados.</td></tr>{% endfor %}</tbody>
+    </table>
+    <p class="small text-muted">Precios referenciales: el precio final lo informa el comercio al retirar.</p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+  const m = fbMapa('mapa', {{ comercio.ubicacion.y|stringformat:"f" }}, {{ comercio.ubicacion.x|stringformat:"f" }}, 16);
+  L.marker([{{ comercio.ubicacion.y|stringformat:"f" }}, {{ comercio.ubicacion.x|stringformat:"f" }}]).addTo(m);
+</script>{% endblock %}

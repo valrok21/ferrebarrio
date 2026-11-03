@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% block titulo %}Mi ferretería{% endblock %}
+{% block cabecera %}{% include "includes/leaflet.html" %}{% endblock %}
+{% block contenido %}
+<h1 class="h3">Mi ferretería</h1>
+{% if comercio %}
+  <p>Estado: <span class="badge text-bg-{% if comercio.estado == 'aprobada' %}success{% elif comercio.estado == 'rechazada' %}danger{% elif comercio.estado == 'observada' %}warning{% else %}secondary{% endif %}">{{ comercio.get_estado_display }}</span>
+  {% if comercio.estado == 'aprobada' %} · <a href="{% url 'comercios:ficha' comercio.pk %}">Ver ficha pública</a>{% endif %}</p>
+  {% if comercio.motivo %}<div class="alert alert-warning">Observación del administrador: {{ comercio.motivo }}</div>{% endif %}
+{% else %}
+  <p class="text-muted">Completa los datos de tu local. Un administrador verificará el RUT, la ubicación y el teléfono antes de publicarlo.</p>
+{% endif %}
+{% if comercio.estado == 'rechazada' %}
+  <div class="alert alert-danger">Tu solicitud fue rechazada. Si crees que es un error, escríbenos.</div>
+{% elif form %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <form method="post" class="fb-form card card-body shadow-sm" novalidate>{% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for campo in form.visible_fields %}<div>{% if campo.field.widget.input_type == "checkbox" %}{{ campo }} {{ campo.label_tag }}{% else %}{{ campo.label_tag }} {{ campo }}{% endif %}{{ campo.errors }}{% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
+      {% for campo in form.hidden_fields %}{{ campo }}{% endfor %}
+      {% if comercio.estado == 'aprobada' %}<p class="small text-muted">Con la ficha aprobada solo puedes cambiar horario y teléfono. Para otros cambios contacta al administrador.</p>{% endif %}
+      <button class="btn btn-primary">Guardar</button>
+    </form>
+  </div>
+  {% if comercio.estado != 'aprobada' %}
+  <div class="col-lg-6">
+    <div id="mapa" class="mapa"></div>
+    <p class="small text-muted mt-2">{% if sin_ubicacion %}<strong class="text-danger">Haz clic en el mapa o arrastra el marcador hasta tu local.</strong>{% else %}Si la ubicación no es exacta, haz clic en el mapa o arrastra el marcador.{% endif %}</p>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if form and comercio.estado != 'aprobada' %}
+<script>
+  const lat = document.getElementById('id_lat'), lon = document.getElementById('id_lon'), movido = document.getElementById('id_marcador_movido');
+  const ini = lat.value ? [parseFloat(lat.value), parseFloat(lon.value)] : [-33.4372, -70.6506];
+  const mapa = fbMapa('mapa', ini[0], ini[1], lat.value ? 16 : 12);
+  const marcador = L.marker(ini, {draggable: true}).addTo(mapa);
+  function fijar(ll) { marcador.setLatLng(ll); lat.value = ll.lat.toFixed(6); lon.value = ll.lng.toFixed(6); movido.value = 'True'; }
+  marcador.on('dragend', () => fijar(marcador.getLatLng()));
+  mapa.on('click', e => fijar(e.latlng));
+</script>
+{% endif %}{% endblock %}
