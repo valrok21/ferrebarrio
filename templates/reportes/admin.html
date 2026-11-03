@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block titulo %}Métricas{% endblock %}
+{% block contenido %}
+<h1 class="h3">Administración</h1>
+<p><a href="{% url 'comercios:solicitudes' %}">{{ solicitudes }} solicitud{{ solicitudes|pluralize:"es" }} de alta</a> · <a href="{% url 'valoraciones:moderar' %}">{{ por_moderar }} valoraci{{ por_moderar|pluralize:"ón,ones" }} por moderar</a></p>
+<div class="row g-3 text-center mb-4">
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="small text-muted">OE1 · comercios aprobados con catálogo</div><div class="fs-3 fw-bold">{{ oe1.con_catalogo }}/{{ oe1.aprobados }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="small text-muted">OE2 · búsquedas con resultados ({{ dias }} días)</div><div class="fs-3 fw-bold">{% if oe2.pct is not None %}{{ oe2.pct }} %{% else %}—{% endif %}</div><div class="small">{{ oe2.con_resultados }} de {{ oe2.total }}</div></div></div></div>
+  <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="small text-muted">OE3 · reservas y tasa de retiro ({{ dias }} días)</div><div class="fs-3 fw-bold">{{ oe3.total }}</div><div class="small">retiro {% if oe3.tasa_retiro is not None %}{{ oe3.tasa_retiro }} %{% else %}—{% endif %}</div></div></div></div>
+</div>
+<h2 class="h5">Conciliación de stock reservado</h2>
+{% if diferencias %}<table class="table table-sm bg-white"><thead><tr><th>Ferretería</th><th>Producto</th><th>Reservado</th><th>En reservas activas</th></tr></thead>
+<tbody>{% for p in diferencias %}<tr class="table-danger"><td>{{ p.comercio }}</td><td>{{ p.nombre }}</td><td>{{ p.stock_reservado }}</td><td>{{ p.en_reservas }}</td></tr>{% endfor %}</tbody></table>
+{% else %}<p class="text-success">Sin diferencias: el stock reservado cuadra con las reservas activas.</p>{% endif %}
+<h2 class="h5 mt-4">Avisos fallidos</h2>
+<ul class="small">{% for a in fallidos %}<li>{{ a.creado_en|date:"d/m H:i" }} · {{ a.tipo }} → {{ a.destinatario }} · {{ a.error|truncatechars:80 }}</li>{% empty %}<li class="text-muted">Ninguno.</li>{% endfor %}</ul>
+{% endblock %}
