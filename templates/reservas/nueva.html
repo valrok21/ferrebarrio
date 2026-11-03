@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load humanize %}{% block titulo %}Reservar{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="card shadow-sm"><div class="card-body">
+  <h1 class="h4">Reservar {{ producto.nombre }}</h1>
+  <p class="mb-1"><a href="{% url 'comercios:ficha' producto.comercio.pk %}">{{ producto.comercio.nombre }}</a> · {{ producto.comercio.direccion }}, {{ producto.comercio.comuna }}</p>
+  <p class="mb-1">Precio referencial: <strong>${{ producto.precio_referencial|intcomma }}</strong> por {{ producto.get_unidad_display }} · {% include "includes/marca_stock.html" %}</p>
+  {% if producto.desactualizado %}<div class="alert alert-warning small">El local no actualiza este stock hace más de 72 h: confirmará la disponibilidad al atender tu reserva.</div>{% endif %}
+  <form method="post" class="fb-form mt-3" novalidate>{% csrf_token %}
+    {{ form.non_field_errors }}
+    <div>{{ form.cantidad.label_tag }} {{ form.cantidad }}{{ form.cantidad.errors }}</div>
+    <p>Total referencial: <strong id="total">${{ producto.precio_referencial|intcomma }}</strong></p>
+    <div class="alert alert-info small">La reserva <strong>no es una compra</strong>: el local aparta el producto por 4 horas y pagas al retirar. El precio final lo informa el comercio.</div>
+    <button class="btn btn-primary w-100">Confirmar reserva</button>
+  </form>
+</div></div></div></div>
+{% endblock %}
+{% block scripts %}<script>
+  const c = document.getElementById('id_cantidad'), t = document.getElementById('total');
+  c.addEventListener('input', () => t.textContent = '$' + ((+c.value || 0) * {{ producto.precio_referencial }}).toLocaleString('es-CL'));
+</script>{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% load humanize %}{% block titulo %}Reserva {{ reserva.codigo }}{% endblock %}
+{% block contenido %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="card shadow-sm text-center"><div class="card-body">
+  <p class="text-muted mb-1">Código de reserva</p>
+  <p class="display-6 fw-bold">{{ reserva.codigo }}</p>
+  <p><span class="badge text-bg-secondary">{{ reserva.get_estado_display }}</span></p>
+  <p>{{ reserva.cantidad }} × {{ reserva.producto.nombre }} — total referencial ${{ reserva.total|intcomma }}</p>
+  <p>{{ reserva.comercio.nombre }}, {{ reserva.comercio.direccion }} · <a href="tel:{{ reserva.comercio.telefono }}">{{ reserva.comercio.telefono }}</a></p>
+  {% if reserva.activa %}<p class="mb-0">Retira antes del <strong>{{ reserva.vence_en|date:"d/m \a \l\a\s H:i" }}</strong> mostrando el código.</p>{% endif %}
+  <p class="small text-muted mt-3">La reserva no es una compra: pagas en el local.</p>
+  <a href="{% url 'reservas:mis_reservas' %}">Ver mis reservas</a>
+</div></div></div></div>
+{% endblock %}

@@ -1,0 +1,13 @@
+<table class="table table-sm bg-white align-middle">
+  <thead><tr><th>Código</th><th>Producto</th><th>Cliente</th><th>Creada</th><th>Vence</th><th></th></tr></thead>
+  <tbody>{% for r in reservas %}<tr>
+    <td class="fw-bold">{{ r.codigo }}</td><td>{{ r.cantidad }} × {{ r.producto.nombre }}</td>
+    <td>{{ r.cliente.nombre }} · <a href="tel:{{ r.cliente.telefono }}">{{ r.cliente.telefono }}</a></td>
+    <td class="small">{{ r.creada_en|date:"d/m H:i" }}</td><td class="small">{{ r.vence_en|date:"d/m H:i" }}</td>
+    <td class="text-nowrap">
+      {% if r.estado == "pendiente" %}<form method="post" action="{% url 'reservas:accion' r.pk 'atender' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-primary">Atender</button></form>{% endif %}
+      <form method="post" action="{% url 'reservas:accion' r.pk 'entregar' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Entregada</button></form>
+      <form method="post" action="{% url 'reservas:accion' r.pk 'anular' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Anular</button></form>
+    </td>
+  </tr>{% empty %}<tr><td colspan="6" class="text-muted">{{ vacio }}</td></tr>{% endfor %}</tbody>
+</table>
