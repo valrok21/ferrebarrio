@@ -35,7 +35,7 @@ jobs:
       - name: Estilo
         run: ruff check . && ruff format --check .
       - name: Análisis estático de seguridad
-        run: bandit -q -r . -x ./.venv,./conftest.py,'*/tests.py'
+        run: bandit -q -r . -x ./.venv,./conftest.py,'*/tests.py','./test_*.py'
       - name: Dependencias con vulnerabilidades conocidas
         run: pip-audit -r requirements.txt
       - name: Pruebas y cobertura (mínimo 70 %)

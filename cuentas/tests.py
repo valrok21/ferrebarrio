@@ -111,7 +111,8 @@ def test_salud(db, client):
     assert client.get("/salud/").content == b"ok"
 
 
-def test_poblar_demo_es_idempotente(db):
+def test_poblar_demo_es_idempotente(db, settings):
+    settings.DEBUG = True
     call_command("poblar_demo")
     conteo = Usuario.objects.count()
     call_command("poblar_demo")

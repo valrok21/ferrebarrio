@@ -14,6 +14,10 @@ def _entorno(settings):
     settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     settings.CELERY_TASK_ALWAYS_EAGER = True  # Celery lee los ajustes de Django en vivo (namespace CELERY)
+    from django.core.cache import cache
+
+    # La LocMemCache es global al proceso: los contadores de bloqueo no pasan de un test a otro.
+    cache.clear()
 
 
 def _usuario(rol="cliente", **extra):

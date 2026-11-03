@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.cache import cache
@@ -7,15 +8,22 @@ from django.utils import timezone
 from .models import Usuario
 
 MAX_FALLOS = 5
+# ponytail: tope por IP alto porque con CGNAT móvil muchos vecinos comparten IP; si hay ataques
+# distribuidos, captcha o límite en el proxy.
+MAX_FALLOS_IP = 100  # una IP que prueba muchos correos distintos
 VENTANA_BLOQUEO = 15 * 60
+DOMINIO_ANONIMO = "ferrebarrio.invalid"  # lo usa eliminar_cuenta; nadie puede registrarlo
 
 
-def _clave_bloqueo(email, ip):
-    return f"login-fallos:{(email or '').strip().lower()}:{ip}"
+def _claves_bloqueo(email, ip):
+    return [
+        (f"login-fallos:{(email or '').strip().lower()}:{ip}", MAX_FALLOS),
+        (f"login-fallos-ip:{ip}", MAX_FALLOS_IP),
+    ]
 
 
 class IngresoForm(AuthenticationForm):
-    """Login por correo con bloqueo de 15 minutos tras 5 fallos por correo + IP."""
+    """Login por correo con bloqueo de 15 minutos tras 5 fallos por correo + IP o 100 por IP."""
 
     username = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs={"autofocus": True}))
     error_messages = {
@@ -28,17 +36,22 @@ class IngresoForm(AuthenticationForm):
         # ponytail: REMOTE_ADDR y no X-Forwarded-For, que lo controla el cliente; detrás de un proxy hay que
         # confiar solo en la cabecera que fije ese proxy.
         ip = self.request.META.get("REMOTE_ADDR", "") if self.request else ""
-        clave = _clave_bloqueo(self.data.get("username"), ip)
-        if (cache.get(clave) or 0) >= MAX_FALLOS:
+        claves = _claves_bloqueo(self.data.get("username"), ip)
+        if any((cache.get(clave) or 0) >= tope for clave, tope in claves):
             raise forms.ValidationError(self.error_messages["bloqueado"], code="bloqueado")
         try:
             datos = super().clean()
         except forms.ValidationError:
-            cache.add(clave, 0, VENTANA_BLOQUEO)
-            cache.incr(clave)
+            for clave, _ in claves:
+                cache.add(clave, 0, VENTANA_BLOQUEO)
+                cache.incr(clave)
             raise
-        cache.delete(clave)
+        cache.delete(claves[0][0])
         return datos
+
+
+class IngresoAdminForm(IngresoForm, AdminAuthenticationForm):
+    """El mismo bloqueo para /django-admin/login/; AdminAuthenticationForm exige is_staff."""
 
 
 class RegistroForm(forms.ModelForm):
@@ -60,6 +73,8 @@ class RegistroForm(forms.ModelForm):
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower()
+        if email.endswith("@" + DOMINIO_ANONIMO):
+            raise forms.ValidationError("Ese correo no es válido.")
         if Usuario.objects.filter(email=email).exists():
             raise forms.ValidationError("Ya existe una cuenta con ese correo.")
         return email

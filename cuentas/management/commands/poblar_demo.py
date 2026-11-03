@@ -3,8 +3,9 @@
 import random
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.gis.geos import Point
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -107,6 +108,9 @@ class Command(BaseCommand):
     help = "Carga usuarios, ferreterías, catálogo, búsquedas y reservas de demostración (no duplica)."
 
     def handle(self, *args, **opciones):
+        if not settings.DEBUG:
+            # Crea un superusuario con la contraseña pública del README: nunca fuera del entorno local.
+            raise CommandError("poblar_demo solo corre con DJANGO_DEBUG=1.")
         if Usuario.objects.filter(email=f"admin@{DOMINIO}").exists():
             self.stdout.write("Los datos de demostración ya están cargados.")
             return

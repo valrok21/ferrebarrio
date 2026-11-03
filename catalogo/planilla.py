@@ -17,6 +17,8 @@ from .texto import normalizar_texto
 COLUMNAS = ["nombre", "categoria", "unidad", "precio", "stock"]
 MAX_BYTES = 2 * 1024 * 1024
 MAX_FILAS = 2000
+MAX_DESCOMPRIMIDO = 20 * 1024 * 1024  # el .xlsx es un zip: el tope de 2 MB no acota lo que ocupa abierto
+MAX_ENTERO = 100_000_000  # precio (CLP) y stock; sobre esto la columna entera de la base se desborda
 CAMPOS_AUDITADOS = ["nombre", "categoria", "unidad", "precio_referencial", "stock_disponible", "activo"]
 
 
@@ -25,13 +27,15 @@ class PlanillaInvalida(Exception):
 
 
 def entero(valor):
-    """Entero ≥ 0 desde 6990, 6990.0, «6.990» o «$6.990»; None si no lo es."""
+    """Entero entre 0 y MAX_ENTERO desde 6990, 6990.0, «6.990» o «$6.990»; None si no lo es."""
     if isinstance(valor, bool):
         return None
     if isinstance(valor, int | float):
-        return int(valor) if valor >= 0 and float(valor).is_integer() else None
-    texto = re.sub(r"[\s$.]", "", str(valor))
-    return int(texto) if texto.isdigit() else None
+        numero = int(valor) if valor >= 0 and float(valor).is_integer() else None
+    else:
+        texto = re.sub(r"[\s$.]", "", str(valor))
+        numero = int(texto) if texto.isdigit() and len(texto) < 12 else None
+    return numero if numero is not None and numero <= MAX_ENTERO else None
 
 
 def plantilla():
@@ -50,6 +54,12 @@ def leer_filas(archivo):
     if archivo.size > MAX_BYTES:
         raise PlanillaInvalida("El archivo supera 2 MB.")
     try:
+        # zipfile no entrega más bytes que los declarados en file_size:
+        # la suma acota lo que lee openpyxl.
+        with zipfile.ZipFile(archivo) as zip_:
+            if sum(i.file_size for i in zip_.infolist()) > MAX_DESCOMPRIMIDO:
+                raise PlanillaInvalida("La planilla es demasiado grande al abrirla.")
+        archivo.seek(0)
         hoja = load_workbook(archivo, read_only=True, data_only=True).active
         filas = list(hoja.iter_rows(max_row=MAX_FILAS + 2, max_col=len(COLUMNAS), values_only=True))
     except (InvalidFileException, zipfile.BadZipFile, KeyError, ValueError, OSError) as e:
@@ -86,7 +96,7 @@ def validar(filas, comercio):
         elif unidad_ok is None:
             error = f"unidad «{unidad}» no válida"
         elif entero(precio) is None or entero(stock) is None:
-            error = "precio y stock deben ser enteros mayores o iguales a 0"
+            error = "precio y stock deben ser enteros entre 0 y 100.000.000"
         elif clave in existentes and existentes[clave].unidad != unidad_ok:
             error = f"la unidad registrada es «{existentes[clave].unidad}»"
         else:

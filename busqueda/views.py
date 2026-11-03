@@ -42,6 +42,7 @@ def _excede_limite(request):
     if not request.session.session_key:
         request.session.save()
     minuto = timezone.now().strftime("%Y%m%d%H%M")
+    # ponytail: REMOTE_ADDR, igual que el bloqueo de ingreso; detrás de un proxy, la IP que fije ese proxy.
     claves = [
         (f"busq:s:{request.session.session_key}:{minuto}", settings.BUSQUEDA_POR_MINUTO),
         (f"busq:ip:{request.META.get('REMOTE_ADDR', '')}:{minuto}", settings.BUSQUEDA_POR_MINUTO * 4),

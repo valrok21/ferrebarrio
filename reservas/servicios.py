@@ -54,6 +54,15 @@ def crear_reserva(cliente, producto_pk, cantidad):
             raise ReservaError(
                 f"Ya tienes {settings.RESERVA_MAX_ACTIVAS} reservas activas. Retira o anula una antes."
             )
+        hace_un_dia = timezone.now() - timedelta(days=1)
+        if (
+            Reserva.objects.filter(cliente=cliente, creada_en__gte=hace_un_dia).count()
+            >= settings.RESERVA_MAX_POR_DIA
+        ):
+            raise ReservaError(
+                f"Llegaste al máximo de {settings.RESERVA_MAX_POR_DIA} reservas en 24 horas. "
+                "Inténtalo mañana."
+            )
         producto = get_object_or_404(
             Producto.objects.select_for_update(of=("self",)).select_related("comercio__propietario"),
             pk=producto_pk,

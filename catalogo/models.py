@@ -61,7 +61,8 @@ class Producto(models.Model):
         return self.nombre
 
     def save(self, *args, **kwargs):
-        self.nombre_normalizado = normalizar_texto(self.nombre)
+        # NFKD puede alargar el texto («㎏» → «kg»): se recorta igual que la clave de la planilla.
+        self.nombre_normalizado = normalizar_texto(self.nombre)[:120]
         if "update_fields" in kwargs and kwargs["update_fields"] is not None:
             kwargs["update_fields"] = {*kwargs["update_fields"], "nombre_normalizado"}
         super().save(*args, **kwargs)

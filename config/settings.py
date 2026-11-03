@@ -120,6 +120,7 @@ NOMINATIM_USER_AGENT = os.environ.get("NOMINATIM_USER_AGENT", "FerreBarrio/1.0 (
 # Reglas de negocio
 RESERVA_VIGENCIA_HORAS = 4
 RESERVA_MAX_ACTIVAS = 3
+RESERVA_MAX_POR_DIA = 10  # creadas en 24 h: corta el ciclo reservar → anular que gasta la cuota de correos
 RESERVA_MAX_CANTIDAD = 20
 RESERVA_AVISO_SIN_ATENCION_MIN = 30
 STOCK_DESACTUALIZADO_HORAS = 72

@@ -21,7 +21,7 @@ class ProductoForm(forms.ModelForm):
     def clean_nombre(self):
         nombre = self.cleaned_data["nombre"].strip()
         repetido = Producto.objects.filter(
-            comercio=self.instance.comercio, activo=True, nombre_normalizado=normalizar_texto(nombre)
+            comercio=self.instance.comercio, activo=True, nombre_normalizado=normalizar_texto(nombre)[:120]
         ).exclude(pk=self.instance.pk)
         if repetido.exists():
             raise forms.ValidationError("Ya tienes un producto con ese nombre.")
