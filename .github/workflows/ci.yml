@@ -1,0 +1,42 @@
+name: CI
+on:
+  push: {branches: [main]}
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: ferrebarrio
+          POSTGRES_USER: ferrebarrio
+          POSTGRES_PASSWORD: ferrebarrio
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U ferrebarrio -d ferrebarrio"
+          --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DJANGO_SECRET_KEY: solo-ci
+      POSTGRES_PASSWORD: ferrebarrio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip, cache-dependency-path: requirements*.txt}
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gdal-bin
+      - run: pip install -r requirements-dev.txt
+      - name: Estilo
+        run: ruff check . && ruff format --check .
+      - name: Análisis estático de seguridad
+        run: bandit -q -r . -x ./.venv,./conftest.py,'*/tests.py'
+      - name: Dependencias con vulnerabilidades conocidas
+        run: pip-audit -r requirements.txt
+      - name: Pruebas y cobertura (mínimo 70 %)
+        run: python manage.py makemigrations --check --dry-run && pytest -q

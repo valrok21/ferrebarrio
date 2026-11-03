@@ -1,0 +1,51 @@
+# Entorno local de demo. Las credenciales son solo para desarrollo.
+x-app: &app
+  build: .
+  volumes: [".:/app"]
+  environment:
+    DJANGO_SECRET_KEY: solo-desarrollo-local-no-usar-en-produccion
+    DJANGO_DEBUG: "1"
+    DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web
+    POSTGRES_HOST: db
+    POSTGRES_DB: ferrebarrio
+    POSTGRES_USER: ferrebarrio
+    POSTGRES_PASSWORD: ferrebarrio
+    REDIS_URL: redis://redis:6379
+    EMAIL_HOST: mailpit
+    EMAIL_PORT: "1025"
+    SITIO_URL: http://localhost:${WEB_PORT:-8000}
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_started}
+    mailpit: {condition: service_started}
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ferrebarrio
+      POSTGRES_USER: ferrebarrio
+      POSTGRES_PASSWORD: ferrebarrio
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ferrebarrio -d ferrebarrio"]
+      interval: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+  mailpit:
+    image: axllent/mailpit
+    ports: ["${MAILPIT_PORT:-8025}:8025"]
+  web:
+    <<: *app
+    ports: ["${WEB_PORT:-8000}:8000"]
+    command: sh -c "python manage.py migrate --noinput && python manage.py poblar_demo && python manage.py runserver 0.0.0.0:8000"
+  worker:
+    <<: *app
+    command: celery -A config worker -l info
+  beat:
+    <<: *app
+    command: celery -A config beat -l info -s /tmp/celerybeat-schedule
+
+volumes:
+  pgdata:

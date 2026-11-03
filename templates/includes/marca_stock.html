@@ -1,0 +1,1 @@
+{% with m=producto.marca %}<span class="badge {% if m.0 == 'stock' %}marca-stock{% elif m.0 == 'confirmar' %}marca-confirmar{% else %}marca-sin{% endif %}">{{ m.1 }}</span>{% endwith %}

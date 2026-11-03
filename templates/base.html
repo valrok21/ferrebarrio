@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}FerreBarrio{% endblock %} · FerreBarrio</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  {% block cabecera %}{% endblock %}
+  <style>
+    .marca-stock{background:#198754}.marca-confirmar{background:#fd7e14}.marca-sin{background:#6c757d}
+    .mapa{height:360px;border-radius:.5rem}
+    .fb-form .errorlist{color:#dc3545;list-style:none;padding:0;margin:.25rem 0;font-size:.875rem}
+    .fb-form > div{margin-bottom:.75rem}
+  </style>
+</head>
+<body class="bg-light d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="/">🔩 FerreBarrio</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu" aria-label="Menú"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="menu">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="/">Buscar</a></li>
+        {% if user.is_authenticated %}
+          {% if user.es_cliente %}<li class="nav-item"><a class="nav-link" href="{% url 'reservas:mis_reservas' %}">Mis reservas</a></li>{% endif %}
+          {% if user.es_comerciante %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'reservas:panel' %}">Reservas</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'catalogo:lista' %}">Catálogo</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'comercios:registrar' %}">Mi ficha</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'reportes:comerciante' %}">Reportes</a></li>
+          {% endif %}
+          {% if user.es_admin %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'reportes:admin' %}">Métricas</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'comercios:solicitudes' %}">Solicitudes</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'valoraciones:moderar' %}">Valoraciones</a></li>
+            <li class="nav-item"><a class="nav-link" href="/django-admin/">Admin técnico</a></li>
+          {% endif %}
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'cuentas:registro' %}?rol=comerciante">Registra tu ferretería</a></li>
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav">
+        {% if user.is_authenticated %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'cuentas:mi_cuenta' %}">{{ user.nombre }} ({{ user.get_rol_display }})</a></li>
+          <li class="nav-item"><form method="post" action="{% url 'cuentas:salir' %}">{% csrf_token %}<button class="btn btn-link nav-link">Salir</button></form></li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'cuentas:ingresar' %}">Ingresar</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'cuentas:registro' %}">Crear cuenta</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+<main class="container py-4 flex-grow-1">
+  {% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>{% endfor %}
+  {% block contenido %}{% endblock %}
+</main>
+<footer class="bg-white border-top py-3 small text-muted">
+  <div class="container d-flex justify-content-between flex-wrap gap-2">
+    <span>FerreBarrio · precios referenciales, la reserva no es una compra.</span>
+    <span><a href="{% url 'cuentas:privacidad' %}">Privacidad</a> · <a href="{% url 'cuentas:terminos' %}">Términos</a></span>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  document.querySelectorAll('.fb-form input:not([type=checkbox]):not([type=radio]):not([type=hidden]), .fb-form select, .fb-form textarea')
+    .forEach(e => e.classList.add(e.tagName === 'SELECT' ? 'form-select' : 'form-control'));
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

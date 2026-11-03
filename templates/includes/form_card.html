@@ -1,0 +1,10 @@
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+  <div class="card shadow-sm"><div class="card-body">
+    <h1 class="h4 mb-3">{{ titulo }}</h1>
+    <form method="post" class="fb-form" novalidate>{% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for campo in form %}<div>{% if campo.field.widget.input_type == "checkbox" %}{{ campo }} {{ campo.label_tag }}{% else %}{{ campo.label_tag }} {{ campo }}{% endif %}{{ campo.errors }}</div>{% endfor %}
+      <button class="btn btn-{{ boton_clase|default:'primary' }} w-100">{{ boton }}</button>
+    </form>
+  </div></div>
+</div></div>
