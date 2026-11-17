@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.db.models import Count, Max, Q
 from django.http import JsonResponse
@@ -9,12 +10,12 @@ from django.views.decorators.http import require_POST
 
 from catalogo.models import Producto
 from comercios.models import Comercio
-from cuentas.models import Usuario
+from cuentas.models import RegistroAuditoria, Usuario
 from cuentas.permisos import comerciante_con_comercio, rol_requerido
 
 from . import servicios
 from .forms import ReservaForm
-from .models import Reserva
+from .models import PERDIDAS, SIN_ATENDER, Reserva, monto
 
 
 @rol_requerido(Usuario.Rol.CLIENTE)
@@ -65,24 +66,65 @@ def anular(request, pk):
     return redirect("reservas:mis_reservas")
 
 
+def _resultado(reserva, anulo_el_cliente):
+    """(clase de etiqueta, texto) de cómo terminó: lo que el comercio puede corregir va en rojo."""
+    if reserva.estado == Reserva.Estado.RETIRADA:
+        return "exito", "Retirada"
+    if reserva.estado == Reserva.Estado.ANULADA:
+        return ("neutra", "Anulada por el cliente") if anulo_el_cliente else ("peligro", "Anulada por ti")
+    if reserva.atendida_en:
+        return "advertencia", "Venció sin retirar"
+    return "peligro", "Venció sin atender"
+
+
 @comerciante_con_comercio
 def panel(request):
-    """HU-15: cola de reservas del comercio."""
+    """HU-15: qué atender primero (vence antes), cuánto hay comprometido y qué stock frena reservas."""
+    ahora = timezone.now()
     reservas = Reserva.objects.filter(comercio=request.comercio).select_related("producto", "cliente")
-    semana = timezone.now() - timedelta(days=7)
+    activas = list(reservas.filter(estado__in=Reserva.ACTIVAS).order_by("vence_en"))
+    espera = ahora - timedelta(minutes=settings.RESERVA_AVISO_SIN_ATENCION_MIN)
+    for r in activas:
+        r.urgente = r.vence_en - ahora < timedelta(hours=1)
+        r.espera_larga = r.creada_en < espera  # solo se muestra en las pendientes
+    pendientes = [r for r in activas if r.estado == Reserva.Estado.PENDIENTE]
+    atendidas = [r for r in activas if r.estado == Reserva.Estado.ATENDIDA]
+    cerradas = reservas.exclude(estado__in=Reserva.ACTIVAS).filter(cerrada_en__gte=ahora - timedelta(days=7))
+    por_confirmar = request.comercio.productos.filter(
+        activo=True, actualizado_en__lt=Producto.limite_frescura()
+    )
+    ultimas = list(cerradas.order_by("-cerrada_en")[:30])
+    por_cliente = set(
+        RegistroAuditoria.objects.filter(
+            accion="anular_reserva_cliente", entidad="reserva", entidad_id__in=[str(r.pk) for r in ultimas]
+        ).values_list("entidad_id", flat=True)
+    )
+    for r in ultimas:
+        r.resultado = _resultado(r, str(r.pk) in por_cliente)
+    hoy = reservas.filter(estado=Reserva.Estado.RETIRADA, cerrada_en__date=timezone.localdate())
     return render(
         request,
         "reservas/panel.html",
         {
-            "pendientes": reservas.filter(estado=Reserva.Estado.PENDIENTE).order_by("creada_en"),
-            "atendidas": reservas.filter(estado=Reserva.Estado.ATENDIDA).order_by("vence_en"),
-            "cerradas": reservas.exclude(estado__in=Reserva.ACTIVAS).filter(creada_en__gte=semana)[:30],
-            "semana": reservas.filter(creada_en__gte=semana).aggregate(
-                total=Count("id"), retiradas=Count("id", filter=Q(estado=Reserva.Estado.RETIRADA))
+            "pendientes": pendientes,
+            "atendidas": atendidas,
+            "cifras": {
+                "espera_larga": sum(r.espera_larga for r in pendientes),
+                "vencen_pronto": sum(r.urgente for r in activas),
+                "comprometido": sum(r.total for r in activas),
+                "aviso_min": settings.RESERVA_AVISO_SIN_ATENCION_MIN,
+                **hoy.aggregate(retiradas_hoy=Count("id"), retirado_hoy=monto()),
+            },
+            "cerradas": ultimas,
+            "semana": cerradas.aggregate(
+                retiradas=Count("id", filter=Q(estado=Reserva.Estado.RETIRADA)),
+                retirado=monto(Q(estado=Reserva.Estado.RETIRADA)),
+                perdidas=Count("id", filter=PERDIDAS),
+                perdido=monto(PERDIDAS),
+                sin_atender=Count("id", filter=SIN_ATENDER),
             ),
-            "desactualizados": request.comercio.productos.filter(
-                activo=True, actualizado_en__lt=Producto.limite_frescura()
-            ).count(),
+            "desactualizados": por_confirmar.count(),
+            "mas_atrasados": por_confirmar.order_by("actualizado_en")[:5],
         },
     )
 

@@ -1,25 +1,42 @@
-{% extends "base.html" %}{% block titulo %}Reportes{% endblock %}
+{% extends "base.html" %}{% load humanize %}{% block titulo %}Reportes{% endblock %}
 {% block contenido %}
 <h1 class="titulo">Reportes de {{ request.comercio.nombre }}</h1>
 <p class="texto-suave pt-1 pb-4">Últimos {{ dias }} días · búsquedas hechas a menos de {{ radio }} km de tu local.</p>
-<div class="grid gap-4 md:grid-cols-2">
-  <div class="tarjeta">
-    <h2 class="subtitulo pb-2">Lo más buscado en tu zona</h2>
-    <ol class="list-decimal space-y-1 pl-5">{% for t in mas_buscados %}<li>{{ t.termino }} <span class="texto-suave">({{ t.n }})</span></li>{% empty %}<li class="texto-suave">Sin búsquedas aún.</li>{% endfor %}</ol>
+<div class="grid grid-cols-2 gap-3 pb-6 text-center md:grid-cols-4">
+  <div class="tarjeta px-2 text-sm"><div class="text-2xl font-bold">${{ resumen.retirado|intcomma }}</div>retirado ({{ resumen.retiradas }} de {{ resumen.total }} reservas)</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-2xl font-bold">${{ resumen.perdido|intcomma }}</div>perdido en {{ resumen.perdidas }} anuladas o vencidas{% if resumen.sin_atender %}<div class="font-bold text-red-700">{{ resumen.sin_atender }} vencida{{ resumen.sin_atender|pluralize }} sin atender</div>{% endif %}</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-2xl font-bold">{% if resumen.tasa_retiro is not None %}{{ resumen.tasa_retiro }} %{% else %}—{% endif %}</div>tasa de retiro <span class="texto-suave">(retiradas sobre cerradas)</span></div>
+  <div class="tarjeta px-2 text-sm"><div class="text-2xl font-bold">{% if resumen.atencion_min is not None %}{{ resumen.atencion_min }} min{% else %}—{% endif %}</div>en promedio hasta atender<div class="texto-suave">{% if resumen.valoraciones %}nota {{ resumen.nota|floatformat:1 }} de 5 ({{ resumen.valoraciones }}){% else %}sin valoraciones{% endif %}</div></div>
+</div>
+<h2 class="subtitulo">Tu zona busca vs. tu catálogo</h2>
+<p class="texto-suave pt-1 pb-2 text-sm">Lo más buscado cerca de ti y lo que encuentra un cliente en tu local. Arriba, lo que te conviene reponer o agregar.</p>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+<table class="tabla">
+  <thead><tr><th>Búsqueda</th><th class="text-right">Veces</th><th class="text-right">Sin stock en la zona</th><th>En tu local</th></tr></thead>
+  <tbody>{% for t in demanda %}<tr>
+    <td>{{ t.termino }}</td><td class="text-right">{{ t.n }}</td><td class="text-right">{{ t.sin_stock }}</td>
+    <td class="{% if t.clave == 'stock' %}texto-suave{% else %}font-bold{% if t.clave == 'sin' %} text-red-700{% elif t.clave == 'confirmar' %} text-amber-700{% endif %}{% endif %}">{{ t.situacion }}</td>
+  </tr>{% empty %}<tr><td colspan="4" class="texto-suave">Sin búsquedas aún.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+<div class="grid gap-4 pt-6 md:grid-cols-2">
+  <div>
+    <h2 class="subtitulo">Reponer primero</h2>
+    <p class="texto-suave pt-1 pb-2 text-sm">Sin stock o por confirmar, ordenados por cuánto los buscan y reservan.</p>
+    <ul class="list-disc space-y-1 pl-5 text-sm">{% for p in reponer %}<li>{{ p.nombre }} · <strong>{% if p.stock_disponible == 0 %}sin stock{% else %}por confirmar{% endif %}</strong> <span class="texto-suave">· buscado {{ p.buscado }} · reservado {{ p.reservado }}</span></li>{% empty %}<li class="texto-suave">Todo tu catálogo tiene stock al día.</li>{% endfor %}</ul>
+    <p class="pt-2 text-sm"><a href="{% url 'catalogo:lista' %}">Actualizar catálogo</a></p>
   </div>
-  <div class="tarjeta">
-    <h2 class="subtitulo">Demanda no cubierta</h2>
-    <p class="texto-suave pt-1 pb-2 text-sm">Búsquedas en tu zona sin ningún local con stock: oportunidades para tu catálogo.</p>
-    <ol class="list-decimal space-y-1 pl-5">{% for t in sin_stock %}<li>{{ t.termino }} <span class="texto-suave">({{ t.n }})</span></li>{% empty %}<li class="texto-suave">Ninguna.</li>{% endfor %}</ol>
-  </div>
-  <div class="tarjeta">
-    <h2 class="subtitulo pb-2">Tus reservas</h2>
-    <ul class="list-disc space-y-1 pl-5">{% for e in por_estado %}<li>{{ e.estado|capfirst }}: {{ e.n }}</li>{% empty %}<li class="texto-suave">Sin reservas.</li>{% endfor %}</ul>
-    <p class="pt-3">Tasa de retiro: <strong>{% if tasa_retiro is not None %}{{ tasa_retiro }} %{% else %}—{% endif %}</strong> <span class="texto-suave text-sm">(retiradas sobre cerradas)</span></p>
-  </div>
-  <div class="tarjeta">
-    <h2 class="subtitulo pb-2">Quiebres de stock</h2>
-    <ul class="list-disc space-y-1 pl-5">{% for p in quiebres %}<li>{{ p.nombre }}</li>{% empty %}<li class="texto-suave">Ningún producto sin stock.</li>{% endfor %}</ul>
+  <div>
+    <h2 class="subtitulo pb-2">Tus productos más reservados</h2>
+    <div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+    <table class="tabla">
+      <thead><tr><th>Producto</th><th class="text-right">Reservas</th><th class="text-right">Retiradas</th><th class="text-right">Perdidas</th><th class="text-right">Retirado</th></tr></thead>
+      <tbody>{% for p in mas_reservados %}<tr>
+        <td>{{ p.producto__nombre }} <span class="texto-suave">({{ p.unidades }} u.)</span></td><td class="text-right">{{ p.n }}</td><td class="text-right">{{ p.retiradas }}</td>
+        <td class="text-right{% if p.perdidas > p.retiradas %} font-bold text-red-700{% endif %}">{{ p.perdidas }}</td><td class="text-right whitespace-nowrap">${{ p.retirado|intcomma }}</td>
+      </tr>{% empty %}<tr><td colspan="5" class="texto-suave">Sin reservas.</td></tr>{% endfor %}</tbody>
+    </table>
+    </div>
   </div>
 </div>
 {% endblock %}

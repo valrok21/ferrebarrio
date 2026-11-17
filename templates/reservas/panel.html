@@ -1,20 +1,58 @@
 {% extends "base.html" %}{% load humanize %}{% block titulo %}Panel{% endblock %}
 {% block contenido %}
 <h1 class="titulo" id="fb-panel">Reservas de {{ request.comercio.nombre }}</h1>
-<p class="texto-suave pt-1 pb-4 text-sm">Esta página se actualiza sola cuando llega una reserva nueva.</p>
+<p class="texto-suave pt-1 pb-4 text-sm">Esta página se actualiza sola cuando llega una reserva nueva. Atiende primero las que vencen antes.</p>
 <div class="space-y-3">
 {% if request.comercio.estado != "aprobada" %}<div class="aviso aviso-info">Tu ferretería está <strong>{{ request.comercio.get_estado_display|lower }}</strong>{% if request.comercio.motivo %}: {{ request.comercio.motivo }}{% endif %}. Se publicará cuando un administrador la apruebe. <a href="{% url 'comercios:registrar' %}">Ver mi ficha</a></div>{% endif %}
-{% if desactualizados %}<div class="aviso aviso-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} por confirmar (más de 72 h sin actualizar). <a href="{% url 'catalogo:lista' %}">Actualizar catálogo</a></div>{% endif %}
+{% if desactualizados %}<div class="aviso aviso-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} por confirmar (más de 72 h sin actualizar): los clientes los ven como POR CONFIRMAR. Los más atrasados:
+  <ul class="list-disc pt-1 pl-5">{% for p in mas_atrasados %}<li>{{ p.nombre }} <span class="texto-suave">· desde el {{ p.actualizado_en|date:"d/m" }}</span></li>{% endfor %}</ul>
+  <a href="{% url 'catalogo:lista' %}">Actualizar catálogo</a></div>{% endif %}
 </div>
-<div class="grid grid-cols-3 gap-3 py-4 text-center">
-  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ pendientes|length }}</div>nuevas</div>
+<div class="grid grid-cols-2 gap-3 py-4 text-center md:grid-cols-4">
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ pendientes|length }}</div>nuevas{% if cifras.espera_larga %}<div class="font-bold text-amber-700">{{ cifras.espera_larga }} espera{{ cifras.espera_larga|pluralize:"n" }} más de {{ cifras.aviso_min }} min</div>{% endif %}</div>
   <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ atendidas|length }}</div>listas para retiro</div>
-  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ semana.retiradas }}/{{ semana.total }}</div>retiradas esta semana</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold{% if cifras.vencen_pronto %} text-red-700{% endif %}">{{ cifras.vencen_pronto }}</div>vencen en menos de 1 h</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">${{ cifras.comprometido|intcomma }}</div>en reservas activas<div class="texto-suave">hoy retiraron ${{ cifras.retirado_hoy|intcomma }} ({{ cifras.retiradas_hoy }})</div></div>
 </div>
 <h2 class="subtitulo pb-2">Nuevas</h2>
 {% include "reservas/_tabla_panel.html" with reservas=pendientes vacio="No hay reservas nuevas." %}
 <h2 class="subtitulo pt-6 pb-2">Listas para retiro</h2>
 {% include "reservas/_tabla_panel.html" with reservas=atendidas vacio="No hay reservas esperando retiro." %}
-<h2 class="subtitulo pt-6 pb-2">Cerradas esta semana</h2>
-<ul class="list-disc space-y-1 pl-5 text-sm">{% for r in cerradas %}<li>{{ r.codigo }} · {{ r.cantidad }} × {{ r.producto.nombre }} · {{ r.get_estado_display }} {{ r.cerrada_en|date:"d/m H:i" }}</li>{% empty %}<li class="texto-suave">Ninguna.</li>{% endfor %}</ul>
+<h2 class="subtitulo pt-6">Cerradas en los últimos 7 días</h2>
+<div class="flex flex-wrap gap-2 pt-1 pb-3 text-sm">
+  <span class="etiqueta etiqueta-exito">Retiradas: {{ semana.retiradas }} · ${{ semana.retirado|intcomma }}</span>
+  <span class="etiqueta etiqueta-peligro">Perdidas (anuladas o vencidas): {{ semana.perdidas }} · ${{ semana.perdido|intcomma }}</span>
+  {% if semana.sin_atender %}<span class="etiqueta etiqueta-advertencia">{{ semana.sin_atender }} vencida{{ semana.sin_atender|pluralize }} sin atender</span>{% endif %}
+</div>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+<table class="tabla">
+  <thead><tr><th>Código</th><th>Producto</th><th class="text-right">Total</th><th>Cliente</th><th>Resultado</th><th>Cerrada</th></tr></thead>
+  <tbody>{% for r in cerradas %}<tr>
+    <td class="font-bold whitespace-nowrap">{{ r.codigo }}</td><td>{{ r.cantidad }} × {{ r.producto.nombre }}</td>
+    <td class="text-right whitespace-nowrap">${{ r.total|intcomma }}</td><td>{{ r.cliente.nombre }}</td>
+    <td class="whitespace-nowrap"><span class="etiqueta etiqueta-{{ r.resultado.0 }}">{{ r.resultado.1 }}</span></td>
+    <td class="text-xs whitespace-nowrap">{{ r.cerrada_en|date:"d/m H:i" }}</td>
+  </tr>{% empty %}<tr><td colspan="6" class="texto-suave">Ninguna en los últimos 7 días.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
 {% endblock %}
+{% block scripts %}<script>
+  // Cuenta regresiva sin recargar: la página solo se recarga cuando llega una reserva nueva.
+  (() => {
+    const fmt = m => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+    function pintar() {
+      const ahora = Date.now() / 1000;
+      document.querySelectorAll('[data-vence]').forEach(el => {
+        const m = Math.floor((el.dataset.vence - ahora) / 60);
+        el.textContent = m < 0 ? 'vencida' : `vence en ${fmt(m)}`;
+        el.classList.toggle('text-red-700', m < 60); el.classList.toggle('font-bold', m < 60);
+      });
+      document.querySelectorAll('[data-desde]').forEach(el => {
+        const m = Math.floor((ahora - el.dataset.desde) / 60);
+        el.textContent = `espera hace ${fmt(m)}`;
+        el.classList.toggle('text-amber-700', m >= el.dataset.aviso); el.classList.toggle('font-bold', m >= el.dataset.aviso);
+      });
+    }
+    pintar(); setInterval(pintar, 30000);
+  })();
+</script>{% endblock %}

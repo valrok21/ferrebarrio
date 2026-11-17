@@ -1,10 +1,12 @@
-<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+{% load humanize %}<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
 <table class="tabla">
-  <thead><tr><th>Código</th><th>Producto</th><th>Cliente</th><th>Creada</th><th>Vence</th><th></th></tr></thead>
+  <thead><tr><th>Código</th><th>Producto</th><th class="text-right">Total</th><th>Cliente</th><th>Plazo</th><th></th></tr></thead>
   <tbody>{% for r in reservas %}<tr>
     <td class="font-bold whitespace-nowrap">{{ r.codigo }}</td><td>{{ r.cantidad }} × {{ r.producto.nombre }}</td>
+    <td class="text-right whitespace-nowrap">${{ r.total|intcomma }}</td>
     <td>{{ r.cliente.nombre }} · <a class="whitespace-nowrap" href="tel:{{ r.cliente.telefono }}">{{ r.cliente.telefono }}</a></td>
-    <td class="text-xs whitespace-nowrap">{{ r.creada_en|date:"d/m H:i" }}</td><td class="text-xs whitespace-nowrap">{{ r.vence_en|date:"d/m H:i" }}</td>
+    <td class="text-xs whitespace-nowrap"><span data-vence="{{ r.vence_en|date:'U' }}"{% if r.urgente %} class="font-bold text-red-700"{% endif %}>vence en {{ r.vence_en|timeuntil }}</span> <span class="texto-suave">({{ r.vence_en|date:"H:i" }})</span>
+      {% if r.estado == "pendiente" %}<br><span data-desde="{{ r.creada_en|date:'U' }}" data-aviso="{{ cifras.aviso_min }}"{% if r.espera_larga %} class="font-bold text-amber-700"{% endif %}>espera hace {{ r.creada_en|timesince }}</span>{% endif %}</td>
     <td class="whitespace-nowrap">
       {% if r.estado == "pendiente" %}<form method="post" action="{% url 'reservas:accion' r.pk 'atender' %}" class="inline">{% csrf_token %}<button class="boton boton-primario boton-chico">Atender</button></form>{% endif %}
       <form method="post" action="{% url 'reservas:accion' r.pk 'entregar' %}" class="inline">{% csrf_token %}<button class="boton boton-exito boton-chico">Entregada</button></form>

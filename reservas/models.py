@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q, Sum
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 
@@ -45,6 +46,15 @@ class Reserva(models.Model):
     @property
     def activa(self):
         return self.estado in self.ACTIVAS
+
+
+PERDIDAS = Q(estado__in=[Reserva.Estado.ANULADA, Reserva.Estado.EXPIRADA])
+SIN_ATENDER = Q(estado=Reserva.Estado.EXPIRADA, atendida_en__isnull=True)  # nunca la apartaron
+
+
+def monto(filtro=None):
+    """Suma de cantidad × precio unitario (0 si no hay filas), para aggregate/annotate."""
+    return Coalesce(Sum(F("cantidad") * F("precio_unitario"), filter=filtro), 0)
 
 
 class Aviso(models.Model):
