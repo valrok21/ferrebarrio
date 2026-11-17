@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -9,7 +10,7 @@ from .texto import normalizar_texto
 
 
 class Categoria(models.Model):
-    """HU-18: categorías compartidas por todos los comercios (se administran en el Django admin)."""
+    """HU-18: categorías compartidas por todos los comercios (se administran en /administracion/datos/)."""
 
     nombre = models.CharField(max_length=60, unique=True)
 
@@ -56,20 +57,35 @@ class Producto(models.Model):
             models.CheckConstraint(condition=Q(stock_disponible__gte=0), name="stock_disponible_no_negativo"),
             models.CheckConstraint(condition=Q(stock_reservado__gte=0), name="stock_reservado_no_negativo"),
         ]
+        # La búsqueda filtra con `nombre_normalizado LIKE '%token%'`: el índice B-tree no sirve para eso y el
+        # trigram sí (pg_trgm, migración 0005).
+        indexes = [
+            GinIndex(fields=["nombre_normalizado"], name="producto_nombre_trgm", opclasses=["gin_trgm_ops"])
+        ]
 
     def __str__(self):
         return self.nombre
 
     def save(self, *args, **kwargs):
-        # NFKD puede alargar el texto («㎏» → «kg»): se recorta igual que la clave de la planilla.
-        self.nombre_normalizado = normalizar_texto(self.nombre)[:120]
+        self.nombre_normalizado = self.clave(self.nombre)
         if "update_fields" in kwargs and kwargs["update_fields"] is not None:
             kwargs["update_fields"] = {*kwargs["update_fields"], "nombre_normalizado"}
         super().save(*args, **kwargs)
 
+    @staticmethod
+    def clave(nombre):
+        """Clave de unicidad por comercio. Única copia: la usan save(), la planilla, el formulario y el seed.
+        Se recorta el nombre como se guarda y después la clave (NFKD puede alargarla: «㎏» → «kg»)."""
+        return normalizar_texto(str(nombre or "").strip()[:120])[:120]
+
+    @staticmethod
+    def limite_frescura():
+        """Antes de este instante, el stock se marca POR CONFIRMAR (CT-02)."""
+        return timezone.now() - timedelta(hours=settings.STOCK_DESACTUALIZADO_HORAS)
+
     @property
     def desactualizado(self):
-        return timezone.now() - self.actualizado_en > timedelta(hours=settings.STOCK_DESACTUALIZADO_HORAS)
+        return self.actualizado_en < self.limite_frescura()
 
     @property
     def marca(self):
@@ -94,6 +110,8 @@ class CargaCatalogo(models.Model):
 
     class Meta:
         ordering = ["-fecha"]
+        verbose_name = "carga de planilla"
+        verbose_name_plural = "cargas de planilla"
 
     @property
     def resumen(self):

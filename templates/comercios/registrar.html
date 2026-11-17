@@ -1,31 +1,33 @@
 {% extends "base.html" %}{% block titulo %}Mi ferretería{% endblock %}
 {% block cabecera %}{% include "includes/leaflet.html" %}{% endblock %}
 {% block contenido %}
-<h1 class="h3">Mi ferretería</h1>
+<h1 class="titulo">Mi ferretería</h1>
+<div class="space-y-3 pt-3 pb-5">
 {% if comercio %}
-  <p>Estado: <span class="badge text-bg-{% if comercio.estado == 'aprobada' %}success{% elif comercio.estado == 'rechazada' %}danger{% elif comercio.estado == 'observada' %}warning{% else %}secondary{% endif %}">{{ comercio.get_estado_display }}</span>
+  <p>Estado: <span class="etiqueta etiqueta-{% if comercio.estado == 'aprobada' %}exito{% elif comercio.estado == 'rechazada' %}peligro{% elif comercio.estado == 'observada' %}advertencia{% else %}neutra{% endif %}">{{ comercio.get_estado_display }}</span>
   {% if comercio.estado == 'aprobada' %} · <a href="{% url 'comercios:ficha' comercio.pk %}">Ver ficha pública</a>{% endif %}</p>
-  {% if comercio.motivo %}<div class="alert alert-warning">Observación del administrador: {{ comercio.motivo }}</div>{% endif %}
+  {% if comercio.motivo %}<div class="aviso aviso-warning">Observación del administrador: {{ comercio.motivo }}</div>{% endif %}
 {% else %}
-  <p class="text-muted">Completa los datos de tu local. Un administrador verificará el RUT, la ubicación y el teléfono antes de publicarlo.</p>
+  <p class="texto-suave">Completa los datos de tu local. Un administrador verificará el RUT, la ubicación y el teléfono antes de publicarlo.</p>
 {% endif %}
+</div>
 {% if comercio.estado == 'rechazada' %}
-  <div class="alert alert-danger">Tu solicitud fue rechazada. Si crees que es un error, escríbenos.</div>
+  <div class="aviso aviso-error">Tu solicitud fue rechazada. Si crees que es un error, escríbenos.</div>
 {% elif form %}
-<div class="row g-4">
-  <div class="col-lg-6">
-    <form method="post" class="fb-form card card-body shadow-sm" novalidate>{% csrf_token %}
+<div class="grid gap-6 lg:grid-cols-2">
+  <div class="min-w-0">
+    <form method="post" class="fb-form tarjeta" novalidate>{% csrf_token %}
       {{ form.non_field_errors }}
-      {% for campo in form.visible_fields %}<div>{% if campo.field.widget.input_type == "checkbox" %}{{ campo }} {{ campo.label_tag }}{% else %}{{ campo.label_tag }} {{ campo }}{% endif %}{{ campo.errors }}{% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
+      {% for campo in form.visible_fields %}<div>{% if campo.field.widget.input_type == "checkbox" %}{{ campo }} {{ campo.label_tag }}{% else %}{{ campo.label_tag }} {{ campo }}{% endif %}{{ campo.errors }}{% if campo.help_text %}<div class="ayuda">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
       {% for campo in form.hidden_fields %}{{ campo }}{% endfor %}
-      {% if comercio.estado == 'aprobada' %}<p class="small text-muted">Con la ficha aprobada solo puedes cambiar horario y teléfono. Para otros cambios contacta al administrador.</p>{% endif %}
-      <button class="btn btn-primary">Guardar</button>
+      {% if comercio.estado == 'aprobada' %}<p class="texto-suave pb-3 text-sm">Con la ficha aprobada solo puedes cambiar horario y teléfono. Para otros cambios contacta al administrador.</p>{% endif %}
+      <button class="boton boton-primario">Guardar</button>
     </form>
   </div>
   {% if comercio.estado != 'aprobada' %}
-  <div class="col-lg-6">
+  <div class="min-w-0">
     <div id="mapa" class="mapa"></div>
-    <p class="small text-muted mt-2">{% if sin_ubicacion %}<strong class="text-danger">Haz clic en el mapa o arrastra el marcador hasta tu local.</strong>{% else %}Si la ubicación no es exacta, haz clic en el mapa o arrastra el marcador.{% endif %}</p>
+    <p class="texto-suave mt-2 text-sm">{% if sin_ubicacion %}<strong class="text-red-700">Haz clic en el mapa o arrastra el marcador hasta tu local.</strong>{% else %}Si la ubicación no es exacta, haz clic en el mapa o arrastra el marcador.{% endif %}</p>
   </div>
   {% endif %}
 </div>

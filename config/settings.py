@@ -11,7 +11,6 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").sp
 SITIO_URL = os.environ.get("SITIO_URL", "http://localhost:8000")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -19,6 +18,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "django.contrib.gis",
+    "django.contrib.postgres",
     "cuentas",
     "comercios",
     "catalogo",
@@ -51,6 +51,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "reservas.contexto.pendientes",
             ]
         },
     }
@@ -64,6 +65,9 @@ DATABASES = {
         "NAME": os.environ.get("POSTGRES_DB", "ferrebarrio"),
         "USER": os.environ.get("POSTGRES_USER", "ferrebarrio"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+        # Reusa conexiones entre requests y descarta las rotas (BD reiniciada) antes de usarlas.
+        "CONN_MAX_AGE": 60,
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -88,6 +92,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]  # static/css/app.css: Tailwind compilado (ver README)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Cookies y cabeceras: endurecidas siempre; las que exigen HTTPS se activan con DJANGO_HTTPS=1.
@@ -130,7 +135,15 @@ BUSQUEDA_POR_MINUTO = 30
 CELERY_BROKER_URL = f"{REDIS_URL}/0"
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER") == "1"
 CELERY_TIMEZONE = TIME_ZONE
+# Resiliencia: la tarea se confirma al terminar (si el worker muere, Redis la reentrega) y cada worker toma
+# una a la vez. Publicar con el broker caído falla rápido: el aviso queda pendiente y beat lo re-despacha.
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_PUBLISH_RETRY_POLICY = {"max_retries": 1, "interval_start": 0, "interval_step": 0.5}
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 2, "socket_timeout": 5}
 CELERY_BEAT_SCHEDULE = {
+    "redespachar-avisos": {"task": "reservas.tasks.redespachar_avisos", "schedule": 60},
     "expirar-reservas": {"task": "reservas.tasks.expirar_reservas", "schedule": 60},
     "avisar-sin-atencion": {"task": "reservas.tasks.avisar_sin_atencion", "schedule": 60},
     "conciliar-stock": {"task": "reservas.tasks.conciliar_stock", "schedule": crontab(hour=3, minute=0)},
@@ -140,9 +153,12 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+# Logs con hora, nivel y módulo. Solo identificadores (pk, código de reserva, tipo): nunca correo, teléfono ni
+# nombre de personas (Ley 21.719).
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
-    "root": {"handlers": ["console"], "level": "INFO"},
+    "formatters": {"fb": {"format": "%(asctime)s %(levelname)s [%(name)s] %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "fb"}},
+    "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
 }

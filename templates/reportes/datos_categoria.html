@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+<p class="pb-4 text-sm"><a href="{% url 'reportes:datos' %}">Datos</a> › <a href="{% url 'reportes:datos_tabla' 'categorias' %}">Categorías</a></p>
+{% include "includes/form_card.html" %}
+{% endblock %}

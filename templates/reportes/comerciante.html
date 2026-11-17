@@ -1,25 +1,25 @@
 {% extends "base.html" %}{% block titulo %}Reportes{% endblock %}
 {% block contenido %}
-<h1 class="h3">Reportes de {{ request.comercio.nombre }}</h1>
-<p class="text-muted">Últimos {{ dias }} días · búsquedas hechas a menos de {{ radio }} km de tu local.</p>
-<div class="row g-4">
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Lo más buscado en tu zona</h2>
-    <ol>{% for t in mas_buscados %}<li>{{ t.termino }} <span class="text-muted">({{ t.n }})</span></li>{% empty %}<li class="text-muted">Sin búsquedas aún.</li>{% endfor %}</ol>
-  </div></div></div>
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Demanda no cubierta</h2>
-    <p class="small text-muted">Búsquedas en tu zona sin ningún local con stock: oportunidades para tu catálogo.</p>
-    <ol>{% for t in sin_stock %}<li>{{ t.termino }} <span class="text-muted">({{ t.n }})</span></li>{% empty %}<li class="text-muted">Ninguna.</li>{% endfor %}</ol>
-  </div></div></div>
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Tus reservas</h2>
-    <ul>{% for e in por_estado %}<li>{{ e.estado|capfirst }}: {{ e.n }}</li>{% empty %}<li class="text-muted">Sin reservas.</li>{% endfor %}</ul>
-    <p class="mb-0">Tasa de retiro: <strong>{% if tasa_retiro is not None %}{{ tasa_retiro }} %{% else %}—{% endif %}</strong> <span class="small text-muted">(retiradas sobre cerradas)</span></p>
-  </div></div></div>
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Quiebres de stock</h2>
-    <ul>{% for p in quiebres %}<li>{{ p.nombre }}</li>{% empty %}<li class="text-muted">Ningún producto sin stock.</li>{% endfor %}</ul>
-  </div></div></div>
+<h1 class="titulo">Reportes de {{ request.comercio.nombre }}</h1>
+<p class="texto-suave pt-1 pb-4">Últimos {{ dias }} días · búsquedas hechas a menos de {{ radio }} km de tu local.</p>
+<div class="grid gap-4 md:grid-cols-2">
+  <div class="tarjeta">
+    <h2 class="subtitulo pb-2">Lo más buscado en tu zona</h2>
+    <ol class="list-decimal space-y-1 pl-5">{% for t in mas_buscados %}<li>{{ t.termino }} <span class="texto-suave">({{ t.n }})</span></li>{% empty %}<li class="texto-suave">Sin búsquedas aún.</li>{% endfor %}</ol>
+  </div>
+  <div class="tarjeta">
+    <h2 class="subtitulo">Demanda no cubierta</h2>
+    <p class="texto-suave pt-1 pb-2 text-sm">Búsquedas en tu zona sin ningún local con stock: oportunidades para tu catálogo.</p>
+    <ol class="list-decimal space-y-1 pl-5">{% for t in sin_stock %}<li>{{ t.termino }} <span class="texto-suave">({{ t.n }})</span></li>{% empty %}<li class="texto-suave">Ninguna.</li>{% endfor %}</ol>
+  </div>
+  <div class="tarjeta">
+    <h2 class="subtitulo pb-2">Tus reservas</h2>
+    <ul class="list-disc space-y-1 pl-5">{% for e in por_estado %}<li>{{ e.estado|capfirst }}: {{ e.n }}</li>{% empty %}<li class="texto-suave">Sin reservas.</li>{% endfor %}</ul>
+    <p class="pt-3">Tasa de retiro: <strong>{% if tasa_retiro is not None %}{{ tasa_retiro }} %{% else %}—{% endif %}</strong> <span class="texto-suave text-sm">(retiradas sobre cerradas)</span></p>
+  </div>
+  <div class="tarjeta">
+    <h2 class="subtitulo pb-2">Quiebres de stock</h2>
+    <ul class="list-disc space-y-1 pl-5">{% for p in quiebres %}<li>{{ p.nombre }}</li>{% empty %}<li class="texto-suave">Ningún producto sin stock.</li>{% endfor %}</ul>
+  </div>
 </div>
 {% endblock %}

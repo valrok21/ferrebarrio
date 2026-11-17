@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block titulo %}Eliminar cuenta{% endblock %}
 {% block contenido %}
-<div class="alert alert-warning col-lg-6 mx-auto">Se anularán tus reservas activas y se anonimizarán tus datos personales. Esta acción no se puede deshacer.</div>
-{% include "includes/form_card.html" with titulo="Eliminar mi cuenta" boton="Eliminar definitivamente" boton_clase="danger" %}
+<div class="aviso aviso-warning mx-auto max-w-md">Se anularán tus reservas activas y se anonimizarán tus datos personales. Esta acción no se puede deshacer.</div>
+<div class="pt-4">{% include "includes/form_card.html" with titulo="Eliminar mi cuenta" boton="Eliminar definitivamente" boton_clase="peligro" %}</div>
 {% endblock %}

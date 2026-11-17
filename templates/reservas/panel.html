@@ -1,17 +1,20 @@
 {% extends "base.html" %}{% load humanize %}{% block titulo %}Panel{% endblock %}
 {% block contenido %}
-<h1 class="h3">Reservas de {{ request.comercio.nombre }}</h1>
-{% if request.comercio.estado != "aprobada" %}<div class="alert alert-info">Tu ferretería está <strong>{{ request.comercio.get_estado_display|lower }}</strong>{% if request.comercio.motivo %}: {{ request.comercio.motivo }}{% endif %}. Se publicará cuando un administrador la apruebe. <a href="{% url 'comercios:registrar' %}">Ver mi ficha</a></div>{% endif %}
-{% if desactualizados %}<div class="alert alert-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} por confirmar (más de 72 h sin actualizar). <a href="{% url 'catalogo:lista' %}">Actualizar catálogo</a></div>{% endif %}
-<div class="row g-3 mb-3 text-center">
-  <div class="col"><div class="card"><div class="card-body"><div class="fs-3 fw-bold">{{ pendientes|length }}</div>nuevas</div></div></div>
-  <div class="col"><div class="card"><div class="card-body"><div class="fs-3 fw-bold">{{ atendidas|length }}</div>listas para retiro</div></div></div>
-  <div class="col"><div class="card"><div class="card-body"><div class="fs-3 fw-bold">{{ semana.retiradas }}/{{ semana.total }}</div>retiradas esta semana</div></div></div>
+<h1 class="titulo" id="fb-panel">Reservas de {{ request.comercio.nombre }}</h1>
+<p class="texto-suave pt-1 pb-4 text-sm">Esta página se actualiza sola cuando llega una reserva nueva.</p>
+<div class="space-y-3">
+{% if request.comercio.estado != "aprobada" %}<div class="aviso aviso-info">Tu ferretería está <strong>{{ request.comercio.get_estado_display|lower }}</strong>{% if request.comercio.motivo %}: {{ request.comercio.motivo }}{% endif %}. Se publicará cuando un administrador la apruebe. <a href="{% url 'comercios:registrar' %}">Ver mi ficha</a></div>{% endif %}
+{% if desactualizados %}<div class="aviso aviso-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} por confirmar (más de 72 h sin actualizar). <a href="{% url 'catalogo:lista' %}">Actualizar catálogo</a></div>{% endif %}
 </div>
-<h2 class="h5">Nuevas</h2>
+<div class="grid grid-cols-3 gap-3 py-4 text-center">
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ pendientes|length }}</div>nuevas</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ atendidas|length }}</div>listas para retiro</div>
+  <div class="tarjeta px-2 text-sm"><div class="text-3xl font-bold">{{ semana.retiradas }}/{{ semana.total }}</div>retiradas esta semana</div>
+</div>
+<h2 class="subtitulo pb-2">Nuevas</h2>
 {% include "reservas/_tabla_panel.html" with reservas=pendientes vacio="No hay reservas nuevas." %}
-<h2 class="h5 mt-4">Listas para retiro</h2>
+<h2 class="subtitulo pt-6 pb-2">Listas para retiro</h2>
 {% include "reservas/_tabla_panel.html" with reservas=atendidas vacio="No hay reservas esperando retiro." %}
-<h2 class="h5 mt-4">Cerradas esta semana</h2>
-<ul class="small">{% for r in cerradas %}<li>{{ r.codigo }} · {{ r.cantidad }} × {{ r.producto.nombre }} · {{ r.get_estado_display }} {{ r.cerrada_en|date:"d/m H:i" }}</li>{% empty %}<li class="text-muted">Ninguna.</li>{% endfor %}</ul>
+<h2 class="subtitulo pt-6 pb-2">Cerradas esta semana</h2>
+<ul class="list-disc space-y-1 pl-5 text-sm">{% for r in cerradas %}<li>{{ r.codigo }} · {{ r.cantidad }} × {{ r.producto.nombre }} · {{ r.get_estado_display }} {{ r.cerrada_en|date:"d/m H:i" }}</li>{% empty %}<li class="texto-suave">Ninguna.</li>{% endfor %}</ul>
 {% endblock %}

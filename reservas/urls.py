@@ -9,5 +9,6 @@ urlpatterns = [
     path("mis-reservas/<int:pk>/", views.detalle, name="detalle"),
     path("mis-reservas/<int:pk>/anular/", views.anular, name="anular"),
     path("panel/", views.panel, name="panel"),
+    path("panel/pendientes.json", views.pendientes_json, name="pendientes_json"),
     path("panel/reservas/<int:pk>/<slug:accion>/", views.accion_comercio, name="accion"),
 ]

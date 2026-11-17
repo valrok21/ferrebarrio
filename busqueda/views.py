@@ -1,3 +1,6 @@
+import logging
+import time
+
 from django.conf import settings
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
@@ -15,6 +18,7 @@ from valoraciones.models import Valoracion
 from .forms import BusquedaForm
 from .models import Busqueda
 
+log = logging.getLogger(__name__)
 MAX_RESULTADOS = 50
 
 
@@ -48,9 +52,17 @@ def _excede_limite(request):
         (f"busq:ip:{request.META.get('REMOTE_ADDR', '')}:{minuto}", settings.BUSQUEDA_POR_MINUTO * 4),
     ]
     excedido = False
-    for clave, tope in claves:
-        cache.add(clave, 0, timeout=90)
-        excedido |= cache.incr(clave) > tope
+    try:
+        for clave, tope in claves:
+            cache.add(clave, 0, timeout=90)
+            excedido |= cache.incr(clave) > tope
+    except Exception as e:
+        # Falla abierto a propósito: es un freno anti-abuso, no un control de acceso. Caída la caché,
+        # la búsqueda sigue disponible. El bloqueo de ingreso, en cambio, falla cerrado.
+        log.warning("Límite de búsqueda sin caché (%s): se permite la búsqueda", type(e).__name__)
+        return False
+    if excedido:
+        log.info("Límite de búsqueda excedido")
     return excedido
 
 
@@ -63,7 +75,14 @@ def inicio(request):
         else:
             d = form.cleaned_data
             lat, lon = d["punto"]
+            inicio_t = time.perf_counter()
             resultados = buscar(d["q"], lat, lon, d["radio"], d["categoria"])
+            log.info(
+                "Búsqueda: %s resultados, radio %s km, %.0f ms",
+                len(resultados),
+                d["radio"],
+                (time.perf_counter() - inicio_t) * 1000,
+            )
             promedios = dict(
                 Valoracion.objects.filter(
                     estado=Valoracion.Estado.APROBADA, comercio__in={p.comercio_id for p in resultados}

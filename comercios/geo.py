@@ -27,11 +27,16 @@ def geocodificar(direccion, comuna):
         return guardada.lat, guardada.lon
     if not settings.NOMINATIM_URL.startswith("https://"):
         return None
-    for _ in range(10):  # política de Nominatim: máximo 1 petición por segundo
-        if cache.add("nominatim:turno", 1, timeout=1):
-            break
-        time.sleep(0.2)
-    else:
+    try:
+        for _ in range(10):  # política de Nominatim: máximo 1 petición por segundo
+            if cache.add("nominatim:turno", 1, timeout=1):
+                break
+            time.sleep(0.2)
+        else:
+            log.info("Geocodificación sin turno libre: se pide ubicar en el mapa")
+            return None
+    except Exception as e:  # sin caché no se puede respetar 1 req/s: no se consulta
+        log.warning("Geocodificación omitida, caché no disponible: %s", type(e).__name__)
         return None
     url = (
         settings.NOMINATIM_URL
@@ -51,4 +56,5 @@ def geocodificar(direccion, comuna):
     if not dentro_de_chile(lat, lon):
         return None
     CacheGeocodificacion.objects.get_or_create(direccion=clave, defaults={"lat": lat, "lon": lon})
+    log.info("Geocodificación resuelta y guardada en caché")
     return lat, lon

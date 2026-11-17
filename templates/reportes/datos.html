@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block titulo %}Datos{% endblock %}
+{% block contenido %}
+<p class="pb-1 text-sm"><a href="{% url 'reportes:admin' %}">Administración</a> › Datos</p>
+<h1 class="titulo pb-4">Datos de la plataforma</h1>
+<div class="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+  {% for clave, titulo in tablas %}<a class="tarjeta font-semibold hover:border-marca" href="{% url 'reportes:datos_tabla' clave %}">{{ titulo }}</a>{% endfor %}
+</div>
+{% endblock %}

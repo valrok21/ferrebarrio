@@ -1,13 +1,15 @@
 {% extends "base.html" %}{% block titulo %}Solicitudes de alta{% endblock %}
 {% block contenido %}
-<h1 class="h3">Solicitudes de alta</h1>
-<table class="table bg-white">
+<h1 class="titulo pb-4">Solicitudes de alta</h1>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+<table class="tabla">
   <thead><tr><th>Ferretería</th><th>RUT</th><th>Comuna</th><th>Estado</th><th>Recibida</th><th></th></tr></thead>
   <tbody>{% for c in pendientes %}<tr>
-    <td>{{ c.nombre }}</td><td>{{ c.rut }}</td><td>{{ c.comuna }}</td><td>{{ c.get_estado_display }}</td><td>{{ c.creado_en|date:"d/m H:i" }}</td>
-    <td><a class="btn btn-sm btn-primary" href="{% url 'comercios:verificar' c.pk %}">Revisar</a></td>
-  </tr>{% empty %}<tr><td colspan="6" class="text-muted">No hay solicitudes pendientes.</td></tr>{% endfor %}</tbody>
+    <td>{{ c.nombre }}</td><td class="whitespace-nowrap">{{ c.rut }}</td><td>{{ c.comuna }}</td><td>{{ c.get_estado_display }}</td><td class="whitespace-nowrap">{{ c.creado_en|date:"d/m H:i" }}</td>
+    <td><a class="boton boton-primario boton-chico" href="{% url 'comercios:verificar' c.pk %}">Revisar</a></td>
+  </tr>{% empty %}<tr><td colspan="6" class="texto-suave">No hay solicitudes pendientes.</td></tr>{% endfor %}</tbody>
 </table>
-<h2 class="h5 mt-4">Resueltas recientemente</h2>
-<ul>{% for c in resueltas %}<li><a href="{% url 'comercios:verificar' c.pk %}">{{ c.nombre }}</a> — {{ c.get_estado_display }} {{ c.verificado_en|date:"d/m/Y" }}</li>{% empty %}<li class="text-muted">Ninguna.</li>{% endfor %}</ul>
+</div>
+<h2 class="subtitulo pt-6 pb-2">Resueltas recientemente</h2>
+<ul class="list-disc space-y-1 pl-5">{% for c in resueltas %}<li><a href="{% url 'comercios:verificar' c.pk %}">{{ c.nombre }}</a> — {{ c.get_estado_display }} {{ c.verificado_en|date:"d/m/Y" }}</li>{% empty %}<li class="texto-suave">Ninguna.</li>{% endfor %}</ul>
 {% endblock %}

@@ -1,27 +1,36 @@
 {% extends "base.html" %}{% load humanize %}{% block titulo %}Catálogo{% endblock %}
 {% block contenido %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <h1 class="h3 mb-0">Catálogo de {{ request.comercio.nombre }}</h1>
-  <a class="btn btn-primary" href="{% url 'catalogo:nuevo' %}">Agregar producto</a>
+<div class="flex flex-wrap items-center justify-between gap-2 pb-4">
+  <h1 class="titulo">Catálogo de {{ request.comercio.nombre }}</h1>
+  <a class="boton boton-primario" href="{% url 'catalogo:nuevo' %}">Agregar producto</a>
 </div>
-{% if desactualizados %}<div class="alert alert-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} sin actualizar hace más de 72 h: se muestra{{ desactualizados|pluralize:"n" }} como «POR CONFIRMAR». Edítalo{{ desactualizados|pluralize }} o vuelve a cargar la planilla.</div>{% endif %}
-<div class="card mb-4"><div class="card-body">
-  <h2 class="h6">Carga masiva</h2>
-  <form method="post" action="{% url 'catalogo:planilla' %}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">{% csrf_token %}
-    <input type="file" name="archivo" accept=".xlsx" class="form-control w-auto" required>
-    <button class="btn btn-outline-primary">Subir planilla</button>
-    <a href="{% url 'catalogo:plantilla' %}" class="small">Descargar plantilla</a>
+{% if desactualizados %}<div class="aviso aviso-warning">{{ desactualizados }} producto{{ desactualizados|pluralize }} sin actualizar hace más de 72 h: se muestra{{ desactualizados|pluralize:"n" }} como «POR CONFIRMAR». Edítalo{{ desactualizados|pluralize }} o vuelve a cargar la planilla.</div>{% endif %}
+<div class="tarjeta my-4">
+  <h2 class="text-base font-semibold">Carga masiva</h2>
+  <form method="post" action="{% url 'catalogo:planilla' %}" enctype="multipart/form-data" class="mt-3 flex flex-wrap items-center gap-3">{% csrf_token %}
+    <input type="file" name="archivo" accept=".xlsx,.csv" class="campo-archivo" required>
+    <button class="boton boton-secundario">Subir planilla</button>
+    <a href="{% url 'catalogo:plantilla' %}" class="text-sm">Descargar plantilla</a>
+    <span class="texto-suave w-full text-xs">.xlsx o .csv (separado por coma o punto y coma) con columnas nombre, categoria, unidad, precio, stock.</span>
   </form>
-  {% if carga %}<p class="small text-muted mt-2 mb-0">Última carga ({{ carga.fecha|date:"d/m H:i" }}, {{ carga.archivo }}): {{ carga.resumen }}</p>{% endif %}
-</div></div>
-<table class="table table-sm bg-white">
-  <thead><tr><th>Producto</th><th>Categoría</th><th class="text-end">Precio ref.</th><th class="text-end">Disponible</th><th class="text-end">Reservado</th><th>Marca</th><th>Actualizado</th><th></th></tr></thead>
+  {% if carga %}<p class="texto-suave mt-3 text-sm">Última carga ({{ carga.fecha|date:"d/m H:i" }}, {{ carga.archivo }}): {{ carga.total }} filas, {{ carga.ok }} aplicadas, {{ carga.errores|length }} con error.</p>
+  {% if carga.errores %}<details class="mt-2" open><summary class="cursor-pointer text-sm font-medium text-red-800">Filas con error ({{ carga.errores|length }}): corrígelas en tu archivo y vuelve a subirlo</summary>
+    <div class="mt-2 overflow-x-auto rounded-lg border border-stone-200">
+    <table class="tabla text-xs"><thead><tr><th>Fila</th><th>Problema</th></tr></thead>
+    <tbody>{% for e in carga.errores %}<tr><td>{{ e.fila }}</td><td>{{ e.error }}</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </details>{% endif %}{% endif %}
+</div>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+<table class="tabla">
+  <thead><tr><th>Producto</th><th>Categoría</th><th class="text-right">Precio ref.</th><th class="text-right">Disponible</th><th class="text-right">Reservado</th><th>Marca</th><th>Actualizado</th><th></th></tr></thead>
   <tbody>{% for p in productos %}<tr>
-    <td>{{ p.nombre }} <span class="text-muted small">/ {{ p.get_unidad_display }}</span></td><td>{{ p.categoria }}</td>
-    <td class="text-end">${{ p.precio_referencial|intcomma }}</td><td class="text-end">{{ p.stock_disponible }}</td><td class="text-end">{{ p.stock_reservado }}</td>
-    <td>{% include "includes/marca_stock.html" with producto=p %}</td><td class="small">{{ p.actualizado_en|date:"d/m H:i" }}</td>
-    <td class="text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="{% url 'catalogo:editar' p.pk %}">Editar</a>
-      <form method="post" action="{% url 'catalogo:eliminar' p.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Quitar</button></form></td>
-  </tr>{% empty %}<tr><td colspan="8" class="text-muted">Aún no tienes productos. Agrégalos uno a uno o sube la planilla.</td></tr>{% endfor %}</tbody>
+    <td>{{ p.nombre }} <span class="texto-suave text-xs">/ {{ p.get_unidad_display }}</span></td><td>{{ p.categoria }}</td>
+    <td class="text-right whitespace-nowrap">${{ p.precio_referencial|intcomma }}</td><td class="text-right">{{ p.stock_disponible }}</td><td class="text-right">{{ p.stock_reservado }}</td>
+    <td>{% include "includes/marca_stock.html" with producto=p %}</td><td class="text-xs whitespace-nowrap">{{ p.actualizado_en|date:"d/m H:i" }}</td>
+    <td class="whitespace-nowrap"><a class="boton boton-secundario boton-chico" href="{% url 'catalogo:editar' p.pk %}">Editar</a>
+      <form method="post" action="{% url 'catalogo:eliminar' p.pk %}" class="inline">{% csrf_token %}<button class="boton boton-peligro boton-chico">Quitar</button></form></td>
+  </tr>{% empty %}<tr><td colspan="8" class="texto-suave">Aún no tienes productos. Agrégalos uno a uno o sube la planilla.</td></tr>{% endfor %}</tbody>
 </table>
+</div>
 {% endblock %}

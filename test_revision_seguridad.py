@@ -51,24 +51,6 @@ def test_eliminar_cuenta_borra_sus_datos_de_los_avisos(crear):
     assert Aviso.objects.filter(reserva__cliente=otro, cuerpo__contains="Anabel Soto").exists()
 
 
-def test_admin_tecnico_bloquea_tras_5_fallos(crear, client):
-    staff = crear.usuario("admin", is_staff=True, is_superuser=True)
-    for _ in range(5):
-        client.post("/django-admin/login/", {"username": staff.email, "password": "mala"})
-    r = client.post("/django-admin/login/", {"username": staff.email, "password": CLAVE})
-    assert r.status_code == 200 and "Demasiados intentos" in r.content.decode()
-
-
-def test_admin_tecnico_deja_entrar_al_staff_y_no_a_un_cliente(crear, client):
-    staff = crear.usuario("admin", is_staff=True, is_superuser=True)
-    r = client.post(
-        "/django-admin/login/?next=/django-admin/", {"username": crear.usuario().email, "password": CLAVE}
-    )
-    assert r.status_code == 200 and "_auth_user_id" not in client.session
-    r = client.post("/django-admin/login/?next=/django-admin/", {"username": staff.email, "password": CLAVE})
-    assert r.status_code == 302 and client.session["_auth_user_id"] == str(staff.pk)
-
-
 def test_poblar_demo_no_corre_sin_debug(db, settings):
     settings.DEBUG = False
     with pytest.raises(CommandError):

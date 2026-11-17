@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.gis.geos import Point
 from django.db.models import Avg, Count, Q
@@ -12,6 +14,7 @@ from .forms import ComercioForm, FichaAprobadaForm, VerificacionForm
 from .geo import geocodificar
 from .models import Comercio
 
+log = logging.getLogger(__name__)
 CAMPOS_AUDITADOS = [
     "nombre",
     "rut",
@@ -146,6 +149,7 @@ def verificar(request, pk):
             + (f"Motivo: {motivo}\n" if motivo else "")
             + "\nRevisa tu panel en FerreBarrio.",
         )
+        log.info("Comercio %s verificado: %s por admin %s", comercio.pk, comercio.estado, request.user.pk)
         messages.success(request, f"{comercio.nombre}: {comercio.get_estado_display()}.")
         return redirect("comercios:solicitudes")
     return render(request, "comercios/verificar.html", {"comercio": comercio, "form": form})

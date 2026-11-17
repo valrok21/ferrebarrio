@@ -1,15 +1,18 @@
-"""Carga masiva de catálogo desde .xlsx (HU-06, CT-07)."""
+"""Carga masiva de catálogo desde .xlsx o .csv (HU-06, CT-07)."""
 
+import csv
+import logging
 import re
+import time
 import zipfile
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from django.db import transaction
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 
-from cuentas.models import auditar, instantanea
+from cuentas.models import RegistroAuditoria, instantanea
 
 from .models import CargaCatalogo, Categoria, Producto
 from .texto import normalizar_texto
@@ -20,6 +23,9 @@ MAX_FILAS = 2000
 MAX_DESCOMPRIMIDO = 20 * 1024 * 1024  # el .xlsx es un zip: el tope de 2 MB no acota lo que ocupa abierto
 MAX_ENTERO = 100_000_000  # precio (CLP) y stock; sobre esto la columna entera de la base se desborda
 CAMPOS_AUDITADOS = ["nombre", "categoria", "unidad", "precio_referencial", "stock_disponible", "activo"]
+
+
+log = logging.getLogger(__name__)
 
 
 class PlanillaInvalida(Exception):
@@ -34,7 +40,7 @@ def entero(valor):
         numero = int(valor) if valor >= 0 and float(valor).is_integer() else None
     else:
         texto = re.sub(r"[\s$.]", "", str(valor))
-        numero = int(texto) if texto.isdigit() and len(texto) < 12 else None
+        numero = int(texto) if re.fullmatch(r"[0-9]{1,11}", texto) else None  # isdigit() acepta «²»
     return numero if numero is not None and numero <= MAX_ENTERO else None
 
 
@@ -50,9 +56,49 @@ def plantilla():
     return salida.getvalue()
 
 
+def filas_csv(archivo):
+    """Filas de un .csv separado por coma o punto y coma, en UTF-8 (con o sin BOM) o Latin-1 (Excel)."""
+    crudo = archivo.read()
+    try:
+        texto = crudo.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        texto = crudo.decode("latin-1")
+    if "\x00" in texto:
+        raise PlanillaInvalida("No pudimos leer el archivo: debe ser un .csv de texto o una planilla .xlsx.")
+    try:
+        dialecto = csv.Sniffer().sniff(texto[:4096], delimiters=",;")
+    except csv.Error:
+        dialecto = csv.excel
+    filas = []
+    try:
+        for fila in csv.reader(StringIO(texto), dialecto):
+            if len(filas) > MAX_FILAS + 1:
+                break
+            fila = [c.strip() or None for c in fila[: len(COLUMNAS)]]
+            filas.append(tuple(fila + [None] * (len(COLUMNAS) - len(fila))))
+    except csv.Error as e:
+        raise PlanillaInvalida(f"No pudimos leer el .csv: {e}.") from e
+    return filas
+
+
 def leer_filas(archivo):
     if archivo.size > MAX_BYTES:
         raise PlanillaInvalida("El archivo supera 2 MB.")
+    if archivo.name.lower().endswith(".csv"):
+        filas = filas_csv(archivo)
+    else:
+        filas = filas_xlsx(archivo)
+    if not filas or [normalizar_texto(str(c or "")) for c in filas[0]] != COLUMNAS:
+        raise PlanillaInvalida(
+            "La primera fila debe ser: " + ", ".join(COLUMNAS) + ". Descarga la plantilla."
+        )
+    datos = [(n, f) for n, f in enumerate(filas[1:], start=2) if any(c not in (None, "") for c in f)]
+    if len(datos) > MAX_FILAS:
+        raise PlanillaInvalida(f"La planilla tiene más de {MAX_FILAS} filas.")
+    return datos
+
+
+def filas_xlsx(archivo):
     try:
         # zipfile no entrega más bytes que los declarados en file_size:
         # la suma acota lo que lee openpyxl.
@@ -63,15 +109,8 @@ def leer_filas(archivo):
         hoja = load_workbook(archivo, read_only=True, data_only=True).active
         filas = list(hoja.iter_rows(max_row=MAX_FILAS + 2, max_col=len(COLUMNAS), values_only=True))
     except (InvalidFileException, zipfile.BadZipFile, KeyError, ValueError, OSError) as e:
-        raise PlanillaInvalida("No pudimos leer el archivo: debe ser una planilla .xlsx.") from e
-    if not filas or [normalizar_texto(str(c or "")) for c in filas[0]] != COLUMNAS:
-        raise PlanillaInvalida(
-            "La primera fila debe ser: " + ", ".join(COLUMNAS) + ". Descarga la plantilla."
-        )
-    datos = [(n, f) for n, f in enumerate(filas[1:], start=2) if any(c not in (None, "") for c in f)]
-    if len(datos) > MAX_FILAS:
-        raise PlanillaInvalida(f"La planilla tiene más de {MAX_FILAS} filas.")
-    return datos
+        raise PlanillaInvalida("No pudimos leer el archivo: debe ser una planilla .xlsx o un .csv.") from e
+    return filas
 
 
 def validar(filas, comercio):
@@ -85,7 +124,7 @@ def validar(filas, comercio):
             for c, v in zip(COLUMNAS, (nombre, categoria, unidad, precio, stock), strict=True)
             if v is None or str(v).strip() == ""
         ]
-        clave = normalizar_texto(str(nombre or ""))[:120]
+        clave = Producto.clave(nombre)
         unidad_ok = unidades.get(normalizar_texto(str(unidad or "")))
         if vacios:
             error = "faltan " + ", ".join(vacios)
@@ -118,6 +157,8 @@ def validar(filas, comercio):
 
 
 def cargar(archivo, comercio, usuario):
+    """Aplica las filas válidas en bloque (2000 filas = pocas consultas, no 6000) y registra el resultado."""
+    inicio = time.monotonic()
     filas = leer_filas(archivo)
     validas, errores = validar(filas, comercio)
     ahora = timezone.now()
@@ -128,18 +169,39 @@ def cargar(archivo, comercio, usuario):
                 comercio=comercio, activo=True, nombre_normalizado__in=[v["clave"] for v in validas]
             )
         }
+        nuevos, cambiados, antes = [], [], {}
         for v in validas:
             producto = bloqueados.get(v["clave"])
-            antes = instantanea(producto, CAMPOS_AUDITADOS)
-            producto = producto or Producto(comercio=comercio, nombre=v["nombre"], unidad=v["unidad"])
+            if producto:
+                antes[producto.pk] = instantanea(producto, CAMPOS_AUDITADOS)
+                cambiados.append(producto)
+            else:
+                # bulk_create no llama a save(): la clave normalizada se calcula aquí.
+                producto = Producto(
+                    comercio=comercio, nombre=v["nombre"], unidad=v["unidad"], nombre_normalizado=v["clave"]
+                )
+                nuevos.append(producto)
             producto.categoria, producto.precio_referencial = v["categoria"], v["precio"]
             producto.stock_disponible, producto.actualizado_en = v["stock"], ahora
-            producto.save()
-            auditar(usuario, "planilla_producto", producto, antes, instantanea(producto, CAMPOS_AUDITADOS))
+        Producto.objects.bulk_create(nuevos)
+        Producto.objects.bulk_update(
+            cambiados, ["categoria", "precio_referencial", "stock_disponible", "actualizado_en"]
+        )
+        RegistroAuditoria.objects.bulk_create(
+            RegistroAuditoria(
+                usuario=usuario if getattr(usuario, "pk", None) else None,
+                accion="planilla_producto",
+                entidad="producto",
+                entidad_id=str(p.pk),
+                antes=antes.get(p.pk),
+                despues=instantanea(p, CAMPOS_AUDITADOS),
+            )
+            for p in cambiados + nuevos
+        )
         if validas:
             comercio.catalogo_actualizado_en = ahora
             comercio.save(update_fields=["catalogo_actualizado_en"])
-        return CargaCatalogo.objects.create(
+        carga = CargaCatalogo.objects.create(
             comercio=comercio,
             usuario=usuario,
             archivo=archivo.name[:200],
@@ -147,3 +209,16 @@ def cargar(archivo, comercio, usuario):
             ok=len(validas),
             errores=errores,
         )
+    log.info(
+        "Planilla cargada: comercio=%s carga=%s formato=%s filas=%s nuevos=%s actualizados=%s "
+        "errores=%s ms=%d",
+        comercio.pk,
+        carga.pk,
+        archivo.name.rsplit(".", 1)[-1].lower(),
+        len(filas),
+        len(nuevos),
+        len(cambiados),
+        len(errores),
+        (time.monotonic() - inicio) * 1000,
+    )
+    return carga

@@ -1,7 +1,8 @@
 from datetime import timedelta
 
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -79,9 +80,20 @@ def panel(request):
             "semana": reservas.filter(creada_en__gte=semana).aggregate(
                 total=Count("id"), retiradas=Count("id", filter=Q(estado=Reserva.Estado.RETIRADA))
             ),
-            "desactualizados": sum(p.desactualizado for p in request.comercio.productos.filter(activo=True)),
+            "desactualizados": request.comercio.productos.filter(
+                activo=True, actualizado_en__lt=Producto.limite_frescura()
+            ).count(),
         },
     )
+
+
+@comerciante_con_comercio
+def pendientes_json(request):
+    """Consulta liviana del panel cada 20 s: si cambia la última reserva pendiente, el panel se recarga."""
+    datos = Reserva.objects.filter(comercio=request.comercio, estado=Reserva.Estado.PENDIENTE).aggregate(
+        pendientes=Count("id"), ultima=Max("id")
+    )
+    return JsonResponse(datos)
 
 
 ACCIONES = {

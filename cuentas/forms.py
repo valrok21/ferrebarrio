@@ -1,5 +1,6 @@
+import logging
+
 from django import forms
-from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.cache import cache
@@ -7,6 +8,7 @@ from django.utils import timezone
 
 from .models import Usuario
 
+log = logging.getLogger(__name__)
 MAX_FALLOS = 5
 VENTANA_BLOQUEO = 15 * 60
 DOMINIO_ANONIMO = "ferrebarrio.invalid"  # lo usa eliminar_cuenta; nadie puede registrarlo
@@ -34,6 +36,7 @@ class IngresoForm(AuthenticationForm):
         ip = self.request.META.get("REMOTE_ADDR", "") if self.request else ""
         claves = _claves_bloqueo(self.data.get("username"), ip)
         if any((cache.get(clave) or 0) >= tope for clave, tope in claves):
+            log.warning("Ingreso rechazado: cuenta bloqueada temporalmente por intentos fallidos")
             raise forms.ValidationError(self.error_messages["bloqueado"], code="bloqueado")
         try:
             datos = super().clean()
@@ -44,10 +47,6 @@ class IngresoForm(AuthenticationForm):
             raise
         cache.delete(claves[0][0])
         return datos
-
-
-class IngresoAdminForm(IngresoForm, AdminAuthenticationForm):
-    """El mismo bloqueo para /django-admin/login/; AdminAuthenticationForm exige is_staff."""
 
 
 class RegistroForm(forms.ModelForm):

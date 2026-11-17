@@ -1,7 +1,6 @@
 from django import forms
 
 from .models import Producto
-from .texto import normalizar_texto
 
 
 class ProductoForm(forms.ModelForm):
@@ -21,7 +20,7 @@ class ProductoForm(forms.ModelForm):
     def clean_nombre(self):
         nombre = self.cleaned_data["nombre"].strip()
         repetido = Producto.objects.filter(
-            comercio=self.instance.comercio, activo=True, nombre_normalizado=normalizar_texto(nombre)[:120]
+            comercio=self.instance.comercio, activo=True, nombre_normalizado=Producto.clave(nombre)
         ).exclude(pk=self.instance.pk)
         if repetido.exists():
             raise forms.ValidationError("Ya tienes un producto con ese nombre.")
@@ -30,5 +29,5 @@ class ProductoForm(forms.ModelForm):
 
 class PlanillaForm(forms.Form):
     archivo = forms.FileField(
-        label="Planilla .xlsx", widget=forms.ClearableFileInput(attrs={"accept": ".xlsx"})
+        label="Planilla .xlsx o .csv", widget=forms.ClearableFileInput(attrs={"accept": ".xlsx,.csv"})
     )

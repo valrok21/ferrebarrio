@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+<p class="pb-1 text-sm"><a href="{% url 'reportes:admin' %}">Administración</a> › <a href="{% url 'reportes:datos' %}">Datos</a> › {{ titulo }}</p>
+<div class="flex flex-wrap items-center justify-between gap-2 pb-4">
+  <h1 class="titulo">{{ titulo }}</h1>
+  {% if tabla == "categorias" %}<a class="boton boton-primario" href="{% url 'reportes:datos_categoria_nueva' %}">Nueva categoría</a>{% endif %}
+</div>
+<form method="get" class="fb-form pb-4"><div class="flex flex-wrap items-end gap-2">
+  <div class="min-w-48 flex-1"><label for="q">Buscar</label><input id="q" name="q" type="search" value="{{ q }}"></div>
+  {% if filtro_campo %}<div><label for="filtro">Filtrar</label><select id="filtro" name="{{ filtro_campo }}"><option value="">Todos</option>{% for valor, texto in filtro_opciones %}<option value="{{ valor }}"{% if valor == filtro_valor %} selected{% endif %}>{{ texto }}</option>{% endfor %}</select></div>{% endif %}
+  <div><button class="boton boton-primario">Aplicar</button></div>
+</div></form>
+<p class="texto-suave pb-2 text-sm">{{ pagina.paginator.count }} registro{{ pagina.paginator.count|pluralize }}</p>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+<table class="tabla">
+  <thead><tr>{% for e in encabezados %}<th>{{ e }}</th>{% endfor %}{% if tabla == "usuarios" or tabla == "categorias" %}<th></th>{% endif %}</tr></thead>
+  <tbody>{% for obj, valores in filas %}<tr>
+    {% for v in valores %}<td>{{ v }}</td>{% endfor %}
+    {% if tabla == "usuarios" %}<td class="whitespace-nowrap">{% if obj.pk != user.pk %}<form method="post" action="{% url 'reportes:datos_usuario_activo' obj.pk %}">{% csrf_token %}<input type="hidden" name="activo" value="{{ obj.is_active|yesno:'0,1' }}">{% if obj.is_active %}<button class="boton boton-peligro boton-chico">Desactivar</button>{% else %}<button class="boton boton-exito boton-chico">Activar</button>{% endif %}</form>{% endif %}</td>
+    {% elif tabla == "categorias" %}<td><a class="boton boton-secundario boton-chico" href="{% url 'reportes:datos_categoria' obj.pk %}">Renombrar</a></td>{% endif %}
+  </tr>{% empty %}<tr><td colspan="{{ encabezados|length|add:1 }}" class="texto-suave">Sin registros.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% if pagina.has_other_pages %}<nav class="flex flex-wrap items-center gap-3 pt-4 text-sm" aria-label="Páginas">
+  {% if pagina.has_previous %}<a href="{% querystring pagina=pagina.previous_page_number %}">← Anterior</a>{% endif %}
+  <span class="texto-suave">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a href="{% querystring pagina=pagina.next_page_number %}">Siguiente →</a>{% endif %}
+</nav>{% endif %}
+{% endblock %}

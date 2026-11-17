@@ -3,12 +3,12 @@
 Plataforma web para encontrar productos en las ferreterías de barrio cercanas, ver si tienen stock y reservarlos para retirarlos en el local. No incluye pagos ni despacho.
 
 - **Vecinos (clientes):** buscan por cercanía, ven resultados en lista y mapa, reservan y valoran el local después del retiro.
-- **Comerciantes:** registran su ferretería, mantienen el catálogo (uno a uno o por planilla Excel) y atienden las reservas.
+- **Comerciantes:** registran su ferretería, mantienen el catálogo (uno a uno o por planilla Excel o CSV) y atienden las reservas.
 - **Administrador:** verifica los comercios nuevos, modera las valoraciones y sigue los indicadores del piloto.
 
 Proyecto de título — Ingeniería en Computación, Universidad Andrés Bello.
 
-**Stack:** Python 3.12 · Django 5.2 · PostgreSQL 16 + PostGIS 3.4 · Celery + Redis 7 · Bootstrap 5.3 · Leaflet + OpenStreetMap · Nominatim (geocodificación) · correo SMTP (Mailpit en local) · Docker Compose · pytest, ruff, bandit, pip-audit.
+**Stack:** Python 3.12 · Django 5.2 · PostgreSQL 16 + PostGIS 3.4 · Celery + Redis 7 · Tailwind CSS 4 (compilado, sin CDN) · Leaflet + OpenStreetMap · Nominatim (geocodificación) · correo SMTP (Mailpit en local) · Docker Compose · pytest, ruff, bandit, pip-audit.
 
 ---
 
@@ -75,7 +75,7 @@ Con los puertos por defecto:
 | Correos enviados (Mailpit) | http://127.0.0.1:8025 |
 | Panel del comerciante | http://127.0.0.1:8000/panel/ |
 | Administración (verificación, moderación, indicadores) | http://127.0.0.1:8000/administracion/ |
-| Admin técnico de Django | http://127.0.0.1:8000/django-admin/ |
+| Datos de la plataforma (tablas, usuarios, categorías) | http://127.0.0.1:8000/administracion/datos/ |
 | Chequeo de salud | http://127.0.0.1:8000/salud/ |
 
 Usa **`127.0.0.1` y no `localhost`**: el navegador comparte las cookies de `localhost` entre todos los puertos, y otra aplicación local puede pisar la sesión (síntoma: ingresas y la página vuelve a pedir el ingreso).
@@ -90,7 +90,7 @@ Contraseña de todos: **`FerreDemo2026`** (solo existe en el entorno local).
 
 | Rol | Correo | Para qué sirve |
 |---|---|---|
-| Administrador | `admin@demo.ferrebarrio.cl` | Verificar comercios, moderar valoraciones, ver indicadores. También entra al admin técnico. |
+| Administrador | `admin@demo.ferrebarrio.cl` | Verificar comercios, moderar valoraciones, ver indicadores. En «Datos» consulta las tablas, activa o desactiva cuentas y administra las categorías. |
 | Comerciante | `sanpablo@demo.ferrebarrio.cl` | Ferretería San Pablo (Av. Los Leones 1234, Providencia), aprobada. |
 | Comerciante | `eltornillo@demo.ferrebarrio.cl` | Ferretería El Tornillo, aprobada. |
 | Comerciante | `donluis@demo.ferrebarrio.cl` | Ferretería Don Luis, aprobada. |
@@ -98,7 +98,7 @@ Contraseña de todos: **`FerreDemo2026`** (solo existe en el entorno local).
 | Cliente | `camila@demo.ferrebarrio.cl` | Camila Rojas. |
 | Cliente | `pedro@demo.ferrebarrio.cl` | Pedro M. |
 
-Cada local aprobado trae unos 15 productos. Algunos están sin stock y otros con stock desactualizado (más de 72 horas sin revisar), para ver las marcas correspondientes. También hay búsquedas, reservas en todos los estados y una valoración, para que los reportes muestren datos desde el primer momento.
+Además de estas, la demo trae 37 ferreterías aprobadas más (5 por comuna en las 8 del piloto, 40 en total), cada una con 25 a 50 productos de un catálogo de 79, con precios y stock variados. Algunos están sin stock, otros con 1 a 3 unidades y otros con stock desactualizado (más de 72 horas sin revisar), para ver las marcas correspondientes. Sus dueños usan la misma contraseña; el correo se ve en «Datos» → Usuarios o Comercios. También hay búsquedas, reservas en todos los estados y una valoración, para que los reportes muestren datos desde el primer momento.
 
 ---
 
@@ -131,7 +131,7 @@ Están en `config/settings.py` (sección «Reglas de negocio»):
 | Stock «desactualizado» | sin revisar hace más de 72 horas |
 | Radio de búsqueda | 1 a 3 km |
 | Búsquedas por minuto | 30 por sesión y 120 por IP |
-| Bloqueo de ingreso | 15 minutos tras 5 fallos con el mismo correo desde la misma IP (también en el admin técnico) |
+| Bloqueo de ingreso | 15 minutos tras 5 fallos con el mismo correo desde la misma IP |
 | Cuota diaria de correos | 300, con alerta a los administradores al llegar al 80 % (`AVISOS_CUOTA_DIARIA`) |
 
 Si dos clientes se disputan la última unidad, solo uno la obtiene: el stock se descuenta con la fila del producto bloqueada.
@@ -156,7 +156,8 @@ Tareas programadas (`CELERY_BEAT_SCHEDULE`):
 | Tarea | Cuándo |
 |---|---|
 | Expirar reservas vencidas y liberar su stock | cada minuto |
-| Avisar al comercio de reservas sin atender | cada minuto |
+| Avisar al cliente y al comercio de reservas sin atender | cada minuto |
+| Reenviar avisos que quedaron sin despachar (Redis caído al reservar) | cada minuto |
 | Conciliación: detectar diferencias entre el stock reservado y las reservas activas, y avisar a los administradores | todos los días a las 03:00 |
 | Avisar a los comercios con catálogo desactualizado | todos los días a las 09:00 |
 
@@ -170,7 +171,7 @@ docker compose logs -f worker beat
 
 ## Carga de catálogo por planilla
 
-En **Panel → Catálogo** se descarga la plantilla (`/panel/catalogo/plantilla.xlsx`). La primera fila debe ser exactamente:
+En **Panel → Catálogo** se sube una planilla `.xlsx` o un archivo `.csv` (separado por coma o punto y coma, en UTF-8 o en la codificación de Excel en Windows). La plantilla se descarga en `/panel/catalogo/plantilla.xlsx`. La primera fila debe ser exactamente:
 
 | nombre | categoria | unidad | precio | stock |
 |---|---|---|---|---|
@@ -179,9 +180,14 @@ En **Panel → Catálogo** se descarga la plantilla (`/panel/catalogo/plantilla.
 - **categoria:** Adhesivos y sellantes, Construcción, Electricidad, Fijaciones, Gasfitería, Herramientas eléctricas, Herramientas manuales, Jardín, Pinturas o Seguridad. No distingue mayúsculas ni tildes.
 - **unidad:** unidad, caja, bolsa, kg, metro, litro, galón, par o rollo.
 - **precio y stock:** enteros entre 0 y 100.000.000. Se aceptan formatos como `6990`, `6.990` o `$6.990`.
-- **Límites:** archivo `.xlsx` de hasta 2 MB (20 MB descomprimido) y 2.000 filas.
+- **Límites:** archivo de hasta 2 MB (un `.xlsx`, además, hasta 20 MB descomprimido) y 2.000 filas.
 
-Si el nombre coincide con un producto que ya existe (sin importar mayúsculas ni tildes), se actualizan su categoría, su precio y su stock (la unidad debe ser la misma); si no, se crea un producto nuevo. Las filas válidas se aplican y las demás se informan con su número de fila y el motivo.
+Si el nombre coincide con un producto que ya existe (sin importar mayúsculas ni tildes), se actualizan su categoría, su precio y su stock (la unidad debe ser la misma); si no, se crea un producto nuevo. Las filas válidas se aplican y las demás se informan con su número de fila y el motivo: bajo el formulario queda la tabla completa de errores de la última carga.
+
+Archivos de prueba para la demo (súbelos como San Pablo):
+
+- `demo/catalogo-limpio.csv`: 42 productos válidos, separados por coma.
+- `demo/catalogo-con-errores.csv`: separados por punto y coma; 4 filas válidas y 8 con error (falta el stock, categoría inexistente, unidad no válida, precio con decimales, precio negativo, producto repetido, sin nombre, stock no numérico).
 
 ---
 
@@ -203,6 +209,12 @@ Para volver a la demo desde cero (borra la base):
 
 ```sh
 docker compose down -v && docker compose up --build -d
+```
+
+Tras cambiar clases en las plantillas, recompila el CSS (necesita Node en el equipo; el resultado se versiona y `test_tailwind.py` falla si una clase usada no está compilada):
+
+```sh
+npx -y -p @tailwindcss/cli@4.3.5 sh -c 'NODE_PATH="$(dirname "$(command -v tailwindcss)")/.." tailwindcss -i static/css/entrada.css -o static/css/app.css --minify'
 ```
 
 `poblar_demo` solo corre con `DJANGO_DEBUG=1`: crea un administrador con la contraseña pública de esta guía y nunca debe ejecutarse en otro entorno.
@@ -246,7 +258,9 @@ Para formatear el código antes de un commit: `docker compose run --rm web ruff 
 | `reservas/` | M4 | Reservas, estados, límites, expiración, conciliación y avisos por correo. Toda la lógica de stock está en `reservas/servicios.py`. |
 | `valoraciones/` | M5 | Valoración después del retiro y moderación (HU-21 a HU-23). |
 | `reportes/` | M6 | Reportes del comerciante (HU-24 a HU-26) e indicadores del administrador. |
-| `templates/` | — | Plantillas HTML (Bootstrap 5), una carpeta por módulo. |
+| `templates/` | — | Plantillas HTML (Tailwind CSS), una carpeta por módulo; `templates/emails/` tiene el correo HTML de los avisos. |
+| `static/css/` | — | `entrada.css` (fuente) y `app.css` (Tailwind compilado y versionado). |
+| `demo/` | — | Archivos CSV de prueba para la carga de catálogo. |
 
 Los tests están en `tests.py` dentro de cada módulo y en `test_revision_seguridad.py`. Los datos de prueba compartidos están en `conftest.py`.
 
@@ -286,7 +300,7 @@ Las credenciales de `docker-compose.yml` son solo para desarrollo local. El ento
 | `web` se reinicia o no conecta a la base en el primer arranque | PostGIS se inicializa una vez antes de quedar listo: `web` espera su chequeo de salud. Si se cortó a la mitad, `docker compose down -v` y vuelve a levantar. |
 | El mapa sale gris, sin calles | Las teselas de OpenStreetMap necesitan internet. La búsqueda funciona igual. |
 | Al registrar un comercio no encuentra la dirección | Nominatim no respondió (o no hay internet): arrastra el marcador al lugar correcto. |
-| No llegan los correos | Revisa Mailpit y `docker compose logs worker`: el envío lo hace el worker, no `web`. |
+| No llegan los correos | Revisa Mailpit y `docker compose logs worker`: el envío lo hace el worker, no `web`. Si Redis estuvo caído al reservar, la reserva se crea igual y el aviso queda pendiente: `beat` lo reenvía a los 2-3 minutos de que Redis vuelve. |
 | «Demasiados intentos fallidos» | Bloqueo de 15 minutos tras 5 fallos. Para liberarlo ya, vacía la caché: `docker compose exec redis redis-cli -n 1 FLUSHDB`. |
 | La reserva desapareció de «activas» | Pasaron 4 horas sin retiro y expiró. Así está diseñado. |
 | En Mac con chip Apple la base arranca lenta | La imagen `postgis/postgis` es x86 y corre emulada. Funciona; solo es más lenta la primera vez. |

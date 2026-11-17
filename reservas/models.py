@@ -67,9 +67,12 @@ class Aviso(models.Model):
     error = models.TextField(blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     enviado_en = models.DateTimeField(null=True, blank=True)
+    despachado_en = models.DateTimeField(null=True, blank=True)  # último encolado aceptado por el broker
 
     class Meta:
         ordering = ["-creado_en"]
+        verbose_name = "correo (aviso)"
+        verbose_name_plural = "correos (avisos)"
 
     def __str__(self):
         return f"{self.tipo} → {self.destinatario} ({self.estado})"

@@ -1,0 +1,33 @@
+{% load humanize %}<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>{{ aviso.asunto }}</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 12px">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden">
+  <tr><td style="background:#c2410c;padding:16px 24px;color:#ffffff;font-size:20px;font-weight:bold">FerreBarrio</td></tr>
+  <tr><td style="padding:24px">
+    <h1 style="margin:0 0 16px;font-size:18px;color:#111827">{{ aviso.asunto }}</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.5">{{ aviso.cuerpo|linebreaksbr }}</p>
+    {% if reserva %}
+    <table role="presentation" width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;font-size:14px;margin:0 0 20px">
+      <tr style="background:#f9fafb"><td style="color:#6b7280;width:40%">Código</td><td style="font-weight:bold">{{ reserva.codigo }}</td></tr>
+      <tr><td style="color:#6b7280">Producto</td><td>{{ reserva.cantidad }} × {{ reserva.producto.nombre }}</td></tr>
+      <tr style="background:#f9fafb"><td style="color:#6b7280">Total referencial</td><td>${{ reserva.total|intcomma }}</td></tr>
+      <tr><td style="color:#6b7280">Ferretería</td><td>{{ reserva.comercio.nombre }}<br><span style="color:#6b7280">{{ reserva.comercio.direccion }}</span></td></tr>
+      <tr style="background:#f9fafb"><td style="color:#6b7280">Estado</td><td>{{ reserva.get_estado_display }}</td></tr>
+      <tr><td style="color:#6b7280">Vence</td><td>{{ reserva.vence_en|date:"d/m/Y H:i" }}</td></tr>
+    </table>
+    {% endif %}
+    {% if cta_url %}
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#c2410c;border-radius:6px">
+      <a href="{{ cta_url }}" style="display:inline-block;padding:12px 20px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px">{{ cta_texto }}</a>
+    </td></tr></table>
+    {% endif %}
+  </td></tr>
+  <tr><td style="padding:16px 24px;background:#f9fafb;color:#6b7280;font-size:12px">La reserva no es una compra: se paga al retirar en el local. Este correo se envió automáticamente; no lo respondas.</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

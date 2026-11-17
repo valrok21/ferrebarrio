@@ -1,12 +1,17 @@
 from celery import shared_task
 
 from . import servicios
-from .avisos import correos_admin, enviar_aviso, programar_aviso
+from .avisos import correos_admin, enviar_aviso, programar_aviso, redespachar_pendientes
 
 
 @shared_task(autoretry_for=(Exception,), max_retries=2, retry_backoff=30)
 def enviar_aviso_tarea(aviso_id):
     enviar_aviso(aviso_id)
+
+
+@shared_task
+def redespachar_avisos():
+    return redespachar_pendientes()
 
 
 @shared_task

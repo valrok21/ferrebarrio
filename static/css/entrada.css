@@ -1,0 +1,197 @@
+/*
+  Fuente de estilos de FerreBarrio (Tailwind CSS v4).
+  El archivo que se sirve es static/css/app.css, compilado y versionado en el repo.
+  Recompilar tras cambiar plantillas o este archivo (desde la raíz del repo):
+    npx -y @tailwindcss/cli@4 -i static/css/entrada.css -o static/css/app.css --minify
+*/
+
+/* source(none): solo se escanean las plantillas declaradas abajo, no todo el repo. */
+@import "tailwindcss" source(none);
+@source "../../templates";
+/* Los correos llevan estilos en línea propios: no aportan clases. */
+@source not "../../templates/emails";
+
+/* Color de marca: el mismo naranjo óxido del correo HTML (templates/emails/aviso.html). */
+@theme {
+  --color-marca: #c2410c;
+  --color-marca-oscuro: #9a3412;
+  --color-marca-claro: #fff7ed;
+}
+
+@layer base {
+  /* Foco visible en todo elemento navegable con teclado. */
+  :focus-visible {
+    outline: 2px solid var(--color-marca);
+    outline-offset: 2px;
+  }
+  a {
+    @apply text-marca underline-offset-2 hover:text-marca-oscuro hover:underline;
+  }
+  /* Preflight deja los botones con cursor por defecto. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Títulos de página y de sección. */
+  .titulo {
+    @apply text-2xl font-bold tracking-tight text-stone-900;
+  }
+  .subtitulo {
+    @apply text-lg font-semibold text-stone-900;
+  }
+  .texto-suave {
+    @apply text-stone-600;
+  }
+
+  /* Tarjeta: superficie blanca con borde. */
+  .tarjeta {
+    @apply rounded-xl border border-stone-200 bg-white p-5 shadow-sm;
+  }
+
+  /* Botones: primario (acción principal), secundario, éxito y peligro. */
+  .boton {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold no-underline transition-colors hover:no-underline;
+  }
+  .boton-chico {
+    @apply px-2.5 py-1 text-xs;
+  }
+  .boton-primario {
+    @apply bg-marca text-white hover:bg-marca-oscuro hover:text-white;
+  }
+  .boton-secundario {
+    @apply bg-white text-stone-800 ring-1 ring-stone-300 ring-inset hover:bg-stone-100 hover:text-stone-900;
+  }
+  .boton-exito {
+    @apply bg-green-700 text-white hover:bg-green-800 hover:text-white;
+  }
+  .boton-peligro {
+    @apply bg-white text-red-700 ring-1 ring-red-300 ring-inset hover:bg-red-700 hover:text-white;
+  }
+
+  /* Mensajes: un color por nivel (los nombres siguen los niveles de django.contrib.messages). */
+  .aviso {
+    @apply rounded-lg border px-4 py-3 text-sm;
+  }
+  .aviso-success {
+    @apply border-green-200 bg-green-50 text-green-900;
+  }
+  .aviso-warning {
+    @apply border-amber-300 bg-amber-50 text-amber-900;
+  }
+  .aviso-error {
+    @apply border-red-200 bg-red-50 text-red-900;
+  }
+  .aviso-info,
+  .aviso-debug {
+    @apply border-sky-200 bg-sky-50 text-sky-900;
+  }
+  /* Recuadro del local donde se retira (reserva nueva y detalle). */
+  .aviso-local {
+    @apply border-orange-200 bg-marca-claro text-stone-900;
+  }
+
+  /* Etiquetas (estado, marca de stock, contador). */
+  .etiqueta {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+  }
+  .etiqueta-exito {
+    @apply bg-green-100 text-green-800;
+  }
+  .etiqueta-advertencia {
+    @apply bg-amber-100 text-amber-900;
+  }
+  .etiqueta-peligro {
+    @apply bg-red-100 text-red-800;
+  }
+  .etiqueta-neutra {
+    @apply bg-stone-200 text-stone-800;
+  }
+  /* Marca de stock (includes/marca_stock.html): legible sobre blanco. */
+  .marca-stock {
+    @apply bg-green-700 text-white;
+  }
+  .marca-confirmar {
+    @apply bg-amber-100 text-amber-900 ring-1 ring-amber-300 ring-inset;
+  }
+  .marca-sin {
+    @apply bg-stone-200 text-stone-700;
+  }
+
+  /* Tablas: siempre dentro de un contenedor con overflow-x-auto. */
+  .tabla {
+    @apply w-full border-collapse bg-white text-left text-sm;
+  }
+  .tabla th {
+    @apply border-b border-stone-200 bg-stone-100 px-3 py-2 font-semibold text-stone-700;
+  }
+  .tabla td {
+    @apply border-b border-stone-200 px-3 py-2 align-middle;
+  }
+  .tabla tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* Enlaces del menú superior (fondo oscuro). */
+  .nav-enlace {
+    @apply flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-stone-200 no-underline hover:bg-stone-800 hover:text-white hover:no-underline;
+  }
+
+  /* Mapa de Leaflet: necesita altura explícita. */
+  .mapa {
+    @apply h-[360px] w-full rounded-lg border border-stone-200;
+  }
+
+  /* Selector de archivo (carga masiva del catálogo). */
+  .campo-archivo {
+    @apply block w-full max-w-xs text-sm text-stone-700 file:mr-3 file:rounded-md file:border-0 file:bg-stone-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-stone-800 hover:file:bg-stone-200;
+  }
+
+  /* Formularios de Django (.fb-form): reemplaza al JS que agregaba clases de Bootstrap. */
+  .fb-form > div {
+    @apply mb-3.5;
+  }
+  .fb-form > div:last-child {
+    @apply mb-0;
+  }
+  .fb-form label {
+    @apply mb-1 block text-sm font-medium text-stone-800;
+  }
+  .fb-form input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]),
+  .fb-form select,
+  .fb-form textarea {
+    @apply block w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-base text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-marca focus:ring-2 focus:ring-marca/30 focus:outline-none sm:text-sm;
+  }
+  .fb-form input[type="file"] {
+    @apply block w-full text-sm;
+  }
+  /* Campo con error (Django agrega aria-invalid). */
+  .fb-form [aria-invalid="true"] {
+    @apply border-red-500;
+  }
+  /* Casillas y opciones: en línea con su texto. */
+  .fb-form input[type="checkbox"],
+  .fb-form input[type="radio"] {
+    @apply size-4 align-middle accent-marca;
+  }
+  .fb-form input[type="checkbox"] + label {
+    @apply mb-0 ml-1 inline align-middle font-normal;
+  }
+  .fb-form label:has(> input[type="radio"]) {
+    @apply mb-0 inline-flex items-center gap-2 py-1 font-normal;
+  }
+  .fb-form div:has(> div > label > input[type="radio"]) {
+    @apply flex flex-wrap gap-x-6;
+  }
+  .fb-form .errorlist {
+    @apply mt-1 list-none p-0 text-sm text-red-700;
+  }
+  .fb-form .errorlist.nonfield {
+    @apply mt-0 mb-3.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-900;
+  }
+  .fb-form .ayuda,
+  .fb-form .helptext {
+    @apply mt-1 text-sm text-stone-600;
+  }
+}

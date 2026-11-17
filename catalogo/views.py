@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponse
@@ -11,6 +13,8 @@ from cuentas.permisos import comerciante_con_comercio
 from .forms import PlanillaForm, ProductoForm
 from .models import Producto
 from .planilla import CAMPOS_AUDITADOS, PlanillaInvalida, cargar, plantilla
+
+log = logging.getLogger(__name__)
 
 
 @comerciante_con_comercio
@@ -81,11 +85,12 @@ def subir_planilla(request):
         try:
             carga = cargar(form.cleaned_data["archivo"], request.comercio, request.user)
         except PlanillaInvalida as e:
+            log.info("Planilla rechazada: comercio=%s motivo=%s", request.comercio.pk, e)
             messages.error(request, str(e))
         else:
             (messages.success if not carga.errores else messages.warning)(request, carga.resumen)
     else:
-        messages.error(request, "Selecciona un archivo .xlsx.")
+        messages.error(request, "Selecciona un archivo .xlsx o .csv.")
     return redirect("catalogo:lista")
 
 

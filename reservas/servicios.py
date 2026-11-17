@@ -1,5 +1,6 @@
 """Reglas de reserva (M4). Todo cambio de stock pasa por aquí, con la fila bloqueada (CT-04, CT-05)."""
 
+import logging
 import secrets
 from datetime import timedelta
 
@@ -17,6 +18,7 @@ from cuentas.models import Usuario, auditar, instantanea
 from .avisos import programar_aviso
 from .models import Reserva
 
+log = logging.getLogger(__name__)
 CAMPOS = ["estado", "cantidad", "atendida_en", "cerrada_en"]
 
 
@@ -103,6 +105,14 @@ def crear_reserva(cliente, producto_pk, cantidad):
             "La reserva no es una compra: pagas al retirar.",
             reserva,
         )
+    log.info(
+        "Reserva %s creada: pk=%s comercio=%s producto=%s cantidad=%s",
+        reserva.codigo,
+        reserva.pk,
+        comercio.pk,
+        producto.pk,
+        cantidad,
+    )
     return reserva
 
 
@@ -129,7 +139,8 @@ def _transicionar(reserva_pk, filtro, desde, hacia, usuario, accion):
         reserva.estado = hacia
         reserva.save()
         auditar(usuario, accion, reserva, antes, instantanea(reserva, CAMPOS))
-        return reserva
+    log.info("Reserva %s: %s → %s (%s)", reserva.codigo, antes["estado"], hacia, accion)
+    return reserva
 
 
 def atender_reserva(reserva_pk, usuario):
@@ -204,7 +215,7 @@ def expirar_vencidas():
             )
         except ReservaError:  # alguien la cerró entre la consulta y el bloqueo
             continue
-        expiradas += 1
+        expiradas += 1  # el log lo deja _transicionar
         programar_aviso(
             reserva.cliente.email,
             "reserva_expirada",
@@ -216,12 +227,12 @@ def expirar_vencidas():
 
 
 def avisar_sin_atencion():
-    """CT-16: si el comercio no atiende en 30 min, se avisa al cliente con el teléfono del local."""
+    """CT-16: si el comercio no atiende en 30 min, avisa al cliente (con el teléfono del local) y al local."""
     limite = timezone.now() - timedelta(minutes=settings.RESERVA_AVISO_SIN_ATENCION_MIN)
     avisadas = 0
     for reserva in Reserva.objects.filter(
         estado=Reserva.Estado.PENDIENTE, creada_en__lte=limite, cliente_avisado_sin_atencion=False
-    ).select_related("comercio", "cliente"):
+    ).select_related("comercio__propietario", "cliente", "producto"):
         if Reserva.objects.filter(pk=reserva.pk, cliente_avisado_sin_atencion=False).update(
             cliente_avisado_sin_atencion=True
         ):
@@ -234,6 +245,17 @@ def avisar_sin_atencion():
                 f"{reserva.comercio.telefono}. Tu reserva sigue vigente.",
                 reserva,
             )
+            programar_aviso(
+                reserva.comercio.propietario.email,
+                "reserva_sin_atencion_comercio",
+                f"{reserva.codigo} lleva {settings.RESERVA_AVISO_SIN_ATENCION_MIN} min sin atender",
+                f"{reserva.cliente.nombre} reservó {reserva.cantidad} × {reserva.producto.nombre} "
+                "y aún espera. "
+                f"Atiéndela en {_url('/panel/')}",
+                reserva,
+            )
+    if avisadas:
+        log.info("Avisos de sin atención: %s reservas", avisadas)
     return avisadas
 
 
