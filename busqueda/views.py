@@ -7,6 +7,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.core.cache import cache
 from django.db.models import Avg
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -58,6 +59,22 @@ def agrupar(resultados, orden):
     for g in grupos.values():
         g["productos"].sort(key=lambda p: p.precio_referencial)
     return sorted(grupos.values(), key=ORDENES.get(orden, ORDENES["cerca"]))
+
+
+def stock(request):
+    """Marca de stock al día de los productos que la búsqueda ya muestra (la página la consulta cada 5 s).
+
+    Solo productos activos de comercios aprobados, los mismos que puede listar la búsqueda pública.
+    """
+    # ponytail: sin límite por minuto; es una lectura por clave primaria de hasta MAX_RESULTADOS filas.
+    ids = [int(i) for i in request.GET.get("ids", "").split(",") if i.isdigit()][:MAX_RESULTADOS]
+    productos = Producto.objects.filter(pk__in=ids, activo=True, comercio__estado=Comercio.Estado.APROBADA)
+    return JsonResponse(
+        {
+            p.pk: {"clave": p.marca[0], "texto": p.marca[1], "reservable": p.stock_disponible > 0}
+            for p in productos.only("pk", "stock_disponible", "actualizado_en")
+        }
+    )
 
 
 def ferreterias_mapa(excluir=()):

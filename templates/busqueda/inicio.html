@@ -43,11 +43,11 @@
         </div>
         <ul class="mt-2 divide-y divide-stone-100 border-t border-stone-100">
         {% for p in g.productos %}
-          <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
+          <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" data-producto="{{ p.pk }}">
             <span class="min-w-0 flex-1 basis-40">{{ p.nombre }} <span class="texto-suave text-xs">/ {{ p.get_unidad_display }}</span></span>
             <span class="whitespace-nowrap font-semibold">${{ p.precio_referencial|intcomma }}</span>
             {% include "includes/marca_stock.html" with producto=p %}
-            {% if p.stock_disponible > 0 %}<a class="boton boton-primario boton-chico whitespace-nowrap" href="{% url 'reservas:nueva' p.pk %}" aria-label="Reservar {{ p.nombre }} en {{ g.comercio.nombre }}">Reservar</a>{% endif %}
+            <a class="boton boton-primario boton-chico whitespace-nowrap" href="{% url 'reservas:nueva' p.pk %}" aria-label="Reservar {{ p.nombre }} en {{ g.comercio.nombre }}"{% if not p.stock_disponible > 0 %} hidden{% endif %}>Reservar</a>
           </li>
         {% endfor %}
         </ul>
@@ -119,5 +119,23 @@
     t.addEventListener('mouseenter', () => { pin().classList.add('pin-activo'); pines[t.dataset.pin].setZIndexOffset(1000); });
     t.addEventListener('mouseleave', () => { pin().classList.remove('pin-activo'); pines[t.dataset.pin].setZIndexOffset(0); });
   });
+  // Stock al día: cada 5 s (con la pestaña visible) y al volver a ella. Si un local anula o atiende una
+  // reserva, la marca cambia y «Reservar» aparece o se oculta sin recargar la página.
+  const filas = new Map([...document.querySelectorAll('[data-producto]')].map(li => [li.dataset.producto, li]));
+  const CLASES = {stock: 'marca-stock', confirmar: 'marca-confirmar', sin: 'marca-sin'};
+  async function stock() {
+    if (document.hidden || !filas.size) return;
+    try {
+      const r = await fetch('{% url "busqueda:stock" %}?ids=' + [...filas.keys()].join(','));
+      if (!r.ok) return;
+      for (const [id, m] of Object.entries(await r.json())) {
+        const li = filas.get(id), marca = li.querySelector('.etiqueta');
+        marca.className = 'etiqueta ' + CLASES[m.clave]; marca.textContent = m.texto;
+        li.querySelector('a.boton').hidden = !m.reservable;
+      }
+    } catch (e) { /* sin red: se reintenta en la próxima vuelta */ }
+  }
+  setInterval(stock, 5000);
+  document.addEventListener('visibilitychange', stock);
   {% endif %}
 </script>{% endblock %}
