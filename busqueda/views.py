@@ -52,11 +52,23 @@ def agrupar(resultados, orden):
     """Una entrada por ferretería con sus productos (más baratos primero), ordenadas según `orden`."""
     grupos = {}
     for p in resultados:
-        g = grupos.setdefault(p.comercio_id, {"comercio": p.comercio, "distancia": p.distancia, "productos": []})
+        nuevo = {"comercio": p.comercio, "distancia": p.distancia, "productos": []}
+        g = grupos.setdefault(p.comercio_id, nuevo)
         g["productos"].append(p)
     for g in grupos.values():
         g["productos"].sort(key=lambda p: p.precio_referencial)
     return sorted(grupos.values(), key=ORDENES.get(orden, ORDENES["cerca"]))
+
+
+def ferreterias_mapa(excluir=()):
+    """Pines grises: aprobadas con ubicación (datos ya públicos en sus fichas), menos las de `excluir`."""
+    # ponytail: sin clustering; con miles de ferreterías, Leaflet.markercluster.
+    return [
+        {"nombre": c.nombre, "lat": c.ubicacion.y, "lon": c.ubicacion.x, "url": f"/comercios/{c.pk}/"}
+        for c in Comercio.objects.filter(estado=Comercio.Estado.APROBADA, ubicacion__isnull=False)
+        .exclude(pk__in=excluir)
+        .only("pk", "nombre", "ubicacion")
+    ]
 
 
 def _excede_limite(request):
@@ -141,4 +153,6 @@ def inicio(request):
                     for n, g in enumerate(grupos, 1)
                 ],
             )
+    # Los que salen numerados en los resultados no se repiten en gris.
+    contexto["todas"] = ferreterias_mapa(excluir={g["comercio"].pk for g in contexto.get("grupos", [])})
     return render(request, "busqueda/inicio.html", contexto)

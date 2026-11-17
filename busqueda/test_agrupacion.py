@@ -28,7 +28,9 @@ def test_una_tarjeta_por_ferreteria_con_sus_productos_mas_baratos_primero(crear,
     assert [p.nombre for p in r.context["grupos"][2]["productos"]] == ["Llave D", "Llave C"]
     # Pin numerado = posición de la tarjeta; un marcador por ferretería, no por producto.
     assert [(m["n"], m["nombre"]) for m in r.context["marcadores"]] == [
-        (1, cerca.nombre), (2, medio.nombre), (3, lejos.nombre)
+        (1, cerca.nombre),
+        (2, medio.nombre),
+        (3, lejos.nombre),
     ]
     html = r.content.decode()
     assert html.count('class="tarjeta-ferreteria"') == 3 and 'id="ferreteria-3"' in html

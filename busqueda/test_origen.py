@@ -28,6 +28,7 @@ def test_ubicacion_fuera_de_chile_sin_comuna_se_rechaza():
 
 def test_resultados_dicen_desde_donde_se_mide(db, client):
     html = client.get("/", {**BASE, **UBICACION, "comuna": "Ñuñoa"}).content.decode()
-    assert "km del centro de Ñuñoa." in html and "bindTooltip('Centro de Ñuñoa')" in html
+    # Con comuna no hay punto azul: no es la ubicación de la persona (el círculo marca el centro).
+    assert "km del centro de Ñuñoa." in html and "bindTooltip('Tu ubicación')" not in html
     html = client.get("/", {**BASE, **UBICACION}).content.decode()
     assert "km de tu ubicación." in html and "bindTooltip('Tu ubicación')" in html

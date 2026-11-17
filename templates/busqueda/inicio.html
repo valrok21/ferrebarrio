@@ -61,7 +61,10 @@
   <div class="order-first lg:sticky lg:top-4 lg:order-none"><div id="mapa" class="mapa-busqueda"></div></div>
 </div>
 {{ marcadores|json_script:"marcadores" }}
+{% else %}
+<div id="mapa" class="mapa mt-4" aria-label="Mapa de ferreterías"></div>
 {% endif %}
+{{ todas|json_script:"todas" }}
 {% endblock %}
 {% block scripts %}<script>
   document.getElementById('mi-ubicacion').addEventListener('click', () => {
@@ -73,6 +76,8 @@
       document.getElementById('form-busqueda').submit();
     }, () => alert('No pudimos obtener tu ubicación: elige una comuna.'));
   });
+  const mapa = fbMapa('mapa', -33.45, -70.65, 11);
+  const enlace = c => Object.assign(document.createElement('a'), {href: c.url, textContent: c.nombre});
   {% if resultados is not None %}
   const form = document.getElementById('form-busqueda');
   document.getElementById('orden')?.addEventListener('change', () => {
@@ -81,17 +86,26 @@
     form.append(marca); form.submit();
   });
   const centro = [{{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}];
-  const mapa = fbMapa('mapa', centro[0], centro[1], 14);
-  const radio = L.circle(centro, {radius: {{ radio_m }}, color: '#c2410c', weight: 1.5, fillOpacity: .04}).addTo(mapa);
-  L.circleMarker(centro, {radius: 7, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1}).addTo(mapa).bindTooltip('{% if form.cleaned_data.comuna %}Centro de {{ form.cleaned_data.comuna|escapejs }}{% else %}Tu ubicación{% endif %}');
-  // Los resultados están dentro del radio: encuadrar el círculo los muestra a todos.
+  // No interactivo: si no, tapa los clics a los pines grises que quedan dentro del radio.
+  const radio = L.circle(centro, {radius: {{ radio_m }}, color: '#c2410c', weight: 1.5, fillOpacity: .04, interactive: false}).addTo(mapa);
+  // Los resultados están dentro del radio: encuadrar el círculo los muestra a todos; después el mapa es libre.
   mapa.fitBounds(radio.getBounds(), {padding: [12, 12]});
+  {% endif %}
+  const todas = JSON.parse(document.getElementById('todas').textContent);
+  for (const c of todas) {
+    L.circleMarker([c.lat, c.lon], {radius: 5, color: '#fff', weight: 1.5, fillColor: '#78716c', fillOpacity: .9}).addTo(mapa).bindTooltip(c.nombre).bindPopup(enlace(c));
+  }
+  {% if resultados is None %}
+  if (todas.length) mapa.fitBounds(todas.map(c => [c.lat, c.lon]), {padding: [24, 24], maxZoom: 15});
+  {% else %}
+  {% if not form.cleaned_data.comuna %}// Punto azul solo con la ubicación real; con comuna, el círculo marca el centro.
+  L.circleMarker(centro, {radius: 7, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1}).addTo(mapa).bindTooltip('Tu ubicación');
+  {% endif %}
   const pines = {};
   for (const c of JSON.parse(document.getElementById('marcadores').textContent)) {
-    const enlace = Object.assign(document.createElement('a'), {href: c.url, textContent: c.nombre});
     // El número va en un span interior: Leaflet ubica el contenedor con transform y escalarlo lo desplazaría.
     const icono = L.divIcon({className: '', html: `<span class="pin-numero">${c.n}</span>`, iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14]});
-    const pin = pines[c.n] = L.marker([c.lat, c.lon], {icon: icono, title: c.nombre}).addTo(mapa).bindPopup(enlace);
+    const pin = pines[c.n] = L.marker([c.lat, c.lon], {icon: icono, title: c.nombre}).addTo(mapa).bindPopup(enlace(c));
     pin.on('click', () => {
       const tarjeta = document.getElementById('ferreteria-' + c.n);
       document.querySelectorAll('.tarjeta-activa').forEach(t => t.classList.remove('tarjeta-activa'));
