@@ -21,6 +21,13 @@ from .models import Busqueda
 log = logging.getLogger(__name__)
 MAX_RESULTADOS = 50
 
+# Orden de las tarjetas de ferretería; lo que no esté aquí se ignora y queda "cerca".
+ORDENES = {
+    "cerca": lambda g: g["distancia"].m,
+    "precio": lambda g: (min(p.precio_referencial for p in g["productos"]), g["distancia"].m),
+    "stock": lambda g: (not any(p.marca[0] == "stock" for p in g["productos"]), g["distancia"].m),
+}
+
 
 def buscar(termino, lat, lon, radio_km, categoria=None):
     """Productos activos de comercios aprobados dentro del radio, más cercanos primero (HU-07..09)."""
@@ -39,6 +46,17 @@ def buscar(termino, lat, lon, radio_km, categoria=None):
         .select_related("comercio", "categoria")
         .order_by("distancia", "precio_referencial")[:MAX_RESULTADOS]
     )
+
+
+def agrupar(resultados, orden):
+    """Una entrada por ferretería con sus productos (más baratos primero), ordenadas según `orden`."""
+    grupos = {}
+    for p in resultados:
+        g = grupos.setdefault(p.comercio_id, {"comercio": p.comercio, "distancia": p.distancia, "productos": []})
+        g["productos"].append(p)
+    for g in grupos.values():
+        g["productos"].sort(key=lambda p: p.precio_referencial)
+    return sorted(grupos.values(), key=ORDENES.get(orden, ORDENES["cerca"]))
 
 
 def _excede_limite(request):
@@ -92,29 +110,35 @@ def inicio(request):
             )
             for p in resultados:
                 p.promedio = promedios.get(p.comercio_id)
-            Busqueda.objects.create(
-                termino=normalizar_texto(d["q"]),
-                categoria=d["categoria"],
-                ubicacion_aprox=Point(round(lon, 3), round(lat, 3), srid=4326),
-                comuna=d["comuna"] or "",
-                radio_km=d["radio"],
-                n_resultados=len(resultados),
-                n_con_stock=sum(p.marca[0] == "stock" for p in resultados),
-            )
-            comercios = {p.comercio_id: p.comercio for p in resultados}.values()
+            # Cambiar el orden repite la misma búsqueda: no se registra otra vez en las estadísticas.
+            if not request.GET.get("reordenar"):
+                Busqueda.objects.create(
+                    termino=normalizar_texto(d["q"]),
+                    categoria=d["categoria"],
+                    ubicacion_aprox=Point(round(lon, 3), round(lat, 3), srid=4326),
+                    comuna=d["comuna"] or "",
+                    radio_km=d["radio"],
+                    n_resultados=len(resultados),
+                    n_con_stock=sum(p.marca[0] == "stock" for p in resultados),
+                )
+            orden = request.GET.get("orden") if request.GET.get("orden") in ORDENES else "cerca"
+            grupos = agrupar(resultados, orden)
             contexto.update(
                 resultados=resultados,
+                grupos=grupos,
+                orden=orden,
                 lat=lat,
                 lon=lon,
                 radio_m=d["radio"] * 1000,
                 marcadores=[
                     {
-                        "lat": c.ubicacion.y,
-                        "lon": c.ubicacion.x,
-                        "nombre": c.nombre,
-                        "url": f"/comercios/{c.pk}/",
+                        "n": n,
+                        "lat": g["comercio"].ubicacion.y,
+                        "lon": g["comercio"].ubicacion.x,
+                        "nombre": g["comercio"].nombre,
+                        "url": f"/comercios/{g['comercio'].pk}/",
                     }
-                    for c in comercios
+                    for n, g in enumerate(grupos, 1)
                 ],
             )
     return render(request, "busqueda/inicio.html", contexto)

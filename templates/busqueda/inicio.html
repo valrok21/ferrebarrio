@@ -1,43 +1,64 @@
 {% extends "base.html" %}{% load humanize %}{% block titulo %}Buscar{% endblock %}
 {% block cabecera %}{% include "includes/leaflet.html" %}{% endblock %}
 {% block contenido %}
+{% if resultados is None %}
 <div class="pb-5 text-center">
   <h1 class="titulo text-3xl">¿Qué necesitas para tu arreglo?</h1>
   <p class="texto-suave mt-1">Encuentra el producto en las ferreterías de tu barrio y resérvalo para retirar hoy.</p>
 </div>
-<form method="get" class="tarjeta fb-form" id="form-busqueda" novalidate>
+{% endif %}
+<form method="get" class="tarjeta fb-form p-3 md:p-4" id="form-busqueda" novalidate>
   {{ form.non_field_errors }}
-  <div class="grid items-end gap-3 md:grid-cols-[4fr_3fr_2fr_1.2fr_2fr]">
-    <div>{{ form.q.label_tag }} {{ form.q }}{{ form.q.errors }}</div>
+  <div class="grid grid-cols-2 items-end gap-x-3 gap-y-2 lg:grid-cols-[4fr_3fr_3fr_1.4fr_auto]">
+    <div class="[grid-column:span_2] lg:[grid-column:auto]">{{ form.q.label_tag }} {{ form.q }}{{ form.q.errors }}</div>
     <div>{{ form.categoria.label_tag }} {{ form.categoria }}</div>
     <div>{{ form.comuna.label_tag }} {{ form.comuna }}</div>
     <div>{{ form.radio.label_tag }} {{ form.radio }}</div>
-    <div class="grid gap-1.5">{{ form.lat }}{{ form.lon }}
-      <button class="boton boton-primario">Buscar</button>
-      <button type="button" class="boton boton-secundario boton-chico" id="mi-ubicacion">📍 Usar mi ubicación</button>
-    </div>
+    <div>{{ form.lat }}{{ form.lon }}<button class="boton boton-primario w-full">Buscar</button></div>
   </div>
+  <button type="button" class="boton boton-secundario boton-chico mt-2" id="mi-ubicacion">📍 Usar mi ubicación</button>
 </form>
 {% if resultados is not None %}
-<div class="mt-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
-  <div class="min-w-0">
-    <p class="texto-suave pb-2">{{ resultados|length }} resultado{{ resultados|pluralize }} a menos de {{ form.cleaned_data.radio }} km.</p>
-    <div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-    <table class="tabla">
-      <thead><tr><th>Producto</th><th>Ferretería</th><th class="text-right">Distancia</th><th class="text-right">Precio referencial</th><th>Stock</th><th></th></tr></thead>
-      <tbody>{% for p in resultados %}<tr>
-        <td class="min-w-44">{{ p.nombre }} <span class="texto-suave text-xs">/ {{ p.get_unidad_display }}</span></td>
-        <td class="min-w-40"><a class="font-bold" href="{% url 'comercios:ficha' p.comercio.pk %}">{{ p.comercio.nombre }}</a><br><span class="texto-suave text-xs">{{ p.comercio.direccion }}</span>{% if p.promedio %} <span class="text-xs text-amber-700">★ {{ p.promedio|floatformat:1 }}</span>{% endif %}</td>
-        <td class="text-right whitespace-nowrap">{{ p.distancia.km|floatformat:1 }} km</td>
-        <td class="text-right whitespace-nowrap">${{ p.precio_referencial|intcomma }}</td>
-        <td>{% include "includes/marca_stock.html" with producto=p %}</td>
-        <td>{% if p.stock_disponible > 0 %}<a class="boton boton-primario boton-chico whitespace-nowrap" href="{% url 'reservas:nueva' p.pk %}" aria-label="Reservar en {{ p.comercio.nombre }}">Reservar aquí</a>{% endif %}</td>
-      </tr>{% empty %}<tr><td colspan="6" class="texto-suave">No encontramos «{{ form.cleaned_data.q }}» cerca. Prueba otro término o un radio mayor.</td></tr>{% endfor %}</tbody>
-    </table>
+<div class="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start">
+  <section class="min-w-0" aria-label="Resultados">
+    <div class="flex flex-wrap items-center justify-between gap-2 pb-3">
+      <p class="texto-suave">{{ resultados|length }} producto{{ resultados|pluralize }} en {{ grupos|length }} ferretería{{ grupos|pluralize }} a menos de {{ form.cleaned_data.radio }} km {% if form.cleaned_data.comuna %}del centro de {{ form.cleaned_data.comuna }}{% else %}de tu ubicación{% endif %}.</p>
+      {% if grupos %}<label class="flex items-center gap-2 text-sm font-medium text-stone-800">Ordenar
+        <select name="orden" form="form-busqueda" id="orden" class="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm">
+          <option value="cerca"{% if orden == "cerca" %} selected{% endif %}>Más cerca</option>
+          <option value="precio"{% if orden == "precio" %} selected{% endif %}>Menor precio</option>
+          <option value="stock"{% if orden == "stock" %} selected{% endif %}>Con stock primero</option>
+        </select></label>{% endif %}
     </div>
-    <p class="texto-suave mt-2 text-xs">Precios referenciales informados por cada local (Ley 19.496): el precio final se confirma al retirar. «POR CONFIRMAR»: el local no actualiza el stock hace más de 72 h.</p>
-  </div>
-  <div><div id="mapa" class="mapa"></div></div>
+    <div class="grid gap-3">
+    {% for g in grupos %}
+      <article id="ferreteria-{{ forloop.counter }}" data-pin="{{ forloop.counter }}" class="tarjeta-ferreteria">
+        <div class="flex items-start gap-3">
+          <span class="pin-numero shrink-0" aria-hidden="true">{{ forloop.counter }}</span>
+          <div class="min-w-0 flex-1">
+            <a class="font-bold" href="{% url 'comercios:ficha' g.comercio.pk %}">{{ g.comercio.nombre }}</a>{% with promedio=g.productos.0.promedio %}{% if promedio %} <span class="text-xs text-amber-700">★ {{ promedio|floatformat:1 }}</span>{% endif %}{% endwith %}
+            <p class="texto-suave text-xs">{{ g.comercio.direccion }}</p>
+          </div>
+          <span class="whitespace-nowrap text-sm font-semibold text-stone-700">{{ g.distancia.km|floatformat:1 }} km</span>
+        </div>
+        <ul class="mt-2 divide-y divide-stone-100 border-t border-stone-100">
+        {% for p in g.productos %}
+          <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
+            <span class="min-w-0 flex-1 basis-40">{{ p.nombre }} <span class="texto-suave text-xs">/ {{ p.get_unidad_display }}</span></span>
+            <span class="whitespace-nowrap font-semibold">${{ p.precio_referencial|intcomma }}</span>
+            {% include "includes/marca_stock.html" with producto=p %}
+            {% if p.stock_disponible > 0 %}<a class="boton boton-primario boton-chico whitespace-nowrap" href="{% url 'reservas:nueva' p.pk %}" aria-label="Reservar {{ p.nombre }} en {{ g.comercio.nombre }}">Reservar</a>{% endif %}
+          </li>
+        {% endfor %}
+        </ul>
+      </article>
+    {% empty %}
+      <p class="tarjeta texto-suave">No encontramos «{{ form.cleaned_data.q }}» cerca. Prueba otro término o un radio mayor.</p>
+    {% endfor %}
+    </div>
+    <p class="texto-suave mt-3 text-xs">Precios referenciales informados por cada local (Ley 19.496): el precio final se confirma al retirar. «POR CONFIRMAR»: el local no actualiza el stock hace más de 72 h.</p>
+  </section>
+  <div class="order-first lg:sticky lg:top-4 lg:order-none"><div id="mapa" class="mapa-busqueda"></div></div>
 </div>
 {{ marcadores|json_script:"marcadores" }}
 {% endif %}
@@ -48,15 +69,40 @@
     navigator.geolocation.getCurrentPosition(pos => {
       document.getElementById('id_lat').value = pos.coords.latitude.toFixed(5);
       document.getElementById('id_lon').value = pos.coords.longitude.toFixed(5);
+      document.getElementById('id_comuna').value = '';  // si queda una comuna elegida, mandaría ella
       document.getElementById('form-busqueda').submit();
     }, () => alert('No pudimos obtener tu ubicación: elige una comuna.'));
   });
   {% if resultados is not None %}
-  const mapa = fbMapa('mapa', {{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}, 14);
-  L.circle([{{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}], {radius: {{ radio_m }}, fillOpacity: .05}).addTo(mapa);
+  const form = document.getElementById('form-busqueda');
+  document.getElementById('orden')?.addEventListener('change', () => {
+    // Misma búsqueda en otro orden: la vista no la vuelve a contar en las estadísticas.
+    const marca = Object.assign(document.createElement('input'), {type: 'hidden', name: 'reordenar', value: '1'});
+    form.append(marca); form.submit();
+  });
+  const centro = [{{ lat|stringformat:"f" }}, {{ lon|stringformat:"f" }}];
+  const mapa = fbMapa('mapa', centro[0], centro[1], 14);
+  const radio = L.circle(centro, {radius: {{ radio_m }}, color: '#c2410c', weight: 1.5, fillOpacity: .04}).addTo(mapa);
+  L.circleMarker(centro, {radius: 7, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1}).addTo(mapa).bindTooltip('{% if form.cleaned_data.comuna %}Centro de {{ form.cleaned_data.comuna|escapejs }}{% else %}Tu ubicación{% endif %}');
+  // Los resultados están dentro del radio: encuadrar el círculo los muestra a todos.
+  mapa.fitBounds(radio.getBounds(), {padding: [12, 12]});
+  const pines = {};
   for (const c of JSON.parse(document.getElementById('marcadores').textContent)) {
-    const enlace = document.createElement('a'); enlace.href = c.url; enlace.textContent = c.nombre;
-    L.marker([c.lat, c.lon]).addTo(mapa).bindPopup(enlace);
+    const enlace = Object.assign(document.createElement('a'), {href: c.url, textContent: c.nombre});
+    // El número va en un span interior: Leaflet ubica el contenedor con transform y escalarlo lo desplazaría.
+    const icono = L.divIcon({className: '', html: `<span class="pin-numero">${c.n}</span>`, iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14]});
+    const pin = pines[c.n] = L.marker([c.lat, c.lon], {icon: icono, title: c.nombre}).addTo(mapa).bindPopup(enlace);
+    pin.on('click', () => {
+      const tarjeta = document.getElementById('ferreteria-' + c.n);
+      document.querySelectorAll('.tarjeta-activa').forEach(t => t.classList.remove('tarjeta-activa'));
+      tarjeta.classList.add('tarjeta-activa');
+      tarjeta.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    });
   }
+  document.querySelectorAll('[data-pin]').forEach(t => {
+    const pin = () => pines[t.dataset.pin].getElement().firstChild;
+    t.addEventListener('mouseenter', () => { pin().classList.add('pin-activo'); pines[t.dataset.pin].setZIndexOffset(1000); });
+    t.addEventListener('mouseleave', () => { pin().classList.remove('pin-activo'); pines[t.dataset.pin].setZIndexOffset(0); });
+  });
   {% endif %}
 </script>{% endblock %}

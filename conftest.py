@@ -51,9 +51,8 @@ def _producto(comercio, nombre='Llave francesa 8"', stock=5, **extra):
     from catalogo.models import Categoria, Producto
 
     extra.setdefault("categoria", Categoria.objects.get_or_create(nombre="Herramientas manuales")[0])
-    return Producto.objects.create(
-        comercio=comercio, nombre=nombre, precio_referencial=1000, stock_disponible=stock, **extra
-    )
+    extra.setdefault("precio_referencial", 1000)
+    return Producto.objects.create(comercio=comercio, nombre=nombre, stock_disponible=stock, **extra)
 
 
 @pytest.fixture

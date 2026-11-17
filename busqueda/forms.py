@@ -32,11 +32,13 @@ class BusquedaForm(forms.Form):
 
     def clean(self):
         datos = super().clean()
+        # La comuna elegida manda: tras "Usar mi ubicación" lat/lon quedan en campos ocultos de la página
+        # y, si mandaran ellos, no habría forma de buscar en otra comuna. Ese botón vacía la comuna.
         lat, lon = datos.get("lat"), datos.get("lon")
-        if lat is not None and lon is not None and dentro_de_chile(lat, lon):
-            datos["punto"] = (lat, lon)
-        elif datos.get("comuna"):
+        if datos.get("comuna"):
             datos["punto"] = COMUNAS[datos["comuna"]]
+        elif lat is not None and lon is not None and dentro_de_chile(lat, lon):
+            datos["punto"] = (lat, lon)
         else:
             raise forms.ValidationError("Permite tu ubicación o elige una comuna.")
         return datos
