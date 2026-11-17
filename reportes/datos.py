@@ -115,7 +115,7 @@ TABLAS = {
         "filtro": ("estado", Aviso.Estado.choices),
     },
     "cargas": {
-        "titulo": "Cargas de planilla",
+        "titulo": "Búsqueda de planillas cargadas",
         "qs": lambda: CargaCatalogo.objects.select_related("comercio").order_by("-fecha"),
         "columnas": [
             ("Comercio", "comercio.nombre"),
@@ -184,7 +184,7 @@ def tabla(request, tabla):
     if q:
         condicion = Q()
         for campo in conf["buscar"]:
-            condicion |= Q(**{f"{campo}__icontains": q})
+            condicion |= Q(**{f"{campo}__unaccent__icontains": q})  # sin distinguir tildes
         qs = qs.filter(condicion)
     filtro, valor = conf.get("filtro"), None
     if filtro:

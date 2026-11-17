@@ -130,6 +130,12 @@ def test_contador_de_pendientes_en_navbar_y_json(escena, crear, ingresar):
     assert panel.get("/panel/pendientes.json").json()["pendientes"] == 0
 
 
+def test_panel_sondea_cada_10_s_y_al_volver_a_la_pestana(escena, ingresar):
+    comercio, _, _ = escena
+    html = ingresar(comercio.propietario).get("/panel/").content.decode()
+    assert "setInterval(revisar, 10000)" in html and "'visibilitychange'" in html
+
+
 def test_json_de_pendientes_aislado_por_comercio(escena, crear, ingresar):
     _, producto, cliente = escena
     servicios.crear_reserva(cliente, producto.pk, 1)

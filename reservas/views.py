@@ -89,7 +89,7 @@ def panel(request):
 
 @comerciante_con_comercio
 def pendientes_json(request):
-    """Consulta liviana del panel cada 20 s: si cambia la última reserva pendiente, el panel se recarga."""
+    """Consulta liviana del panel (cada 10 s y al volver a la pestaña): si llega otra pendiente, recarga."""
     datos = Reserva.objects.filter(comercio=request.comercio, estado=Reserva.Estado.PENDIENTE).aggregate(
         pendientes=Count("id"), ultima=Max("id")
     )

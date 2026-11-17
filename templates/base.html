@@ -63,7 +63,8 @@
   })();
 </script>
 {% if user.is_authenticated and user.es_comerciante %}<script>
-  // Reservas nuevas: actualiza el contador cada 20 s y, en el panel, recarga si llegó una.
+  // Reservas nuevas: actualiza el contador cada 10 s y al volver a la pestaña
+  // (Chrome frena los timers de pestañas ocultas); en el panel, recarga si llegó una.
   (() => {
     const badge = document.getElementById('fb-pendientes'), titulo = document.title;
     let ultima;
@@ -78,7 +79,8 @@
         ultima = d.ultima;
       } catch (e) { /* sin red: se reintenta en la próxima vuelta */ }
     }
-    revisar(); setInterval(revisar, 20000);
+    revisar(); setInterval(revisar, 10000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) revisar(); });
   })();
 </script>{% endif %}
 {% block scripts %}{% endblock %}

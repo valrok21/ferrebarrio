@@ -2,7 +2,7 @@
 
 import pytest
 
-from catalogo.models import Categoria
+from catalogo.models import CargaCatalogo, Categoria
 from comercios.models import Comercio
 from cuentas.models import RegistroAuditoria
 
@@ -69,6 +69,16 @@ def test_busqueda_filtra(crear, como_admin):
     crear.producto(comercio, "Taladro percutor")
     html = como_admin.get("/administracion/datos/productos/", {"q": "martillo"}).content.decode()
     assert "Martillo carpintero" in html and "Taladro percutor" not in html
+
+
+def test_busqueda_no_distingue_tildes(crear, como_admin):
+    comercio = crear.comercio()  # «Ferretería N»
+    CargaCatalogo.objects.create(comercio=comercio, archivo="catálogo.csv")
+    for q in ["Ferreteria", "FERRETERÍA", "catalogo"]:
+        html = como_admin.get("/administracion/datos/cargas/", {"q": q}).content.decode()
+        assert "1 registro" in html and comercio.nombre in html, q
+    html = como_admin.get("/administracion/datos/cargas/", {"q": "Ferreterio"}).content.decode()
+    assert "0 registros" in html
 
 
 def test_filtro_por_estado_filtra_y_valor_ajeno_se_ignora(crear, como_admin):
