@@ -77,6 +77,7 @@
     }, () => alert('No pudimos obtener tu ubicación: elige una comuna.'));
   });
   const mapa = fbMapa('mapa', -33.45, -70.65, 11);
+  // El nombre lo escribe el comerciante: a Leaflet siempre nodos DOM, nunca texto (un string lo inserta como HTML).
   const enlace = c => Object.assign(document.createElement('a'), {href: c.url, textContent: c.nombre});
   {% if resultados is not None %}
   const form = document.getElementById('form-busqueda');
@@ -93,7 +94,7 @@
   {% endif %}
   const todas = JSON.parse(document.getElementById('todas').textContent);
   for (const c of todas) {
-    L.circleMarker([c.lat, c.lon], {radius: 5, color: '#fff', weight: 1.5, fillColor: '#78716c', fillOpacity: .9}).addTo(mapa).bindTooltip(c.nombre).bindPopup(enlace(c));
+    L.circleMarker([c.lat, c.lon], {radius: 5, color: '#fff', weight: 1.5, fillColor: '#78716c', fillOpacity: .9}).addTo(mapa).bindPopup(enlace(c));  // sin tooltip: los nombres ensucian el mapa (usuario)
   }
   {% if resultados is None %}
   if (todas.length) mapa.fitBounds(todas.map(c => [c.lat, c.lon]), {padding: [24, 24], maxZoom: 15});

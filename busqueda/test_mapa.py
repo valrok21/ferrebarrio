@@ -26,3 +26,13 @@ def test_resultado_numerado_no_se_repite_en_gris_y_las_lejanas_siguen(crear, cli
     r = client.get("/", PROVIDENCIA)
     assert [m["nombre"] for m in r.context["marcadores"]] == [cerca.nombre]
     assert _nombres(r) == {lejos.nombre}
+
+
+def test_nombre_del_comerciante_no_llega_como_html_a_leaflet(crear, client):
+    # Leaflet inserta como HTML el string que recibe en bindTooltip/bindPopup; el nombre lo escribe el
+    # comerciante (XSS persistente). La prueba de ejecución se hizo en Chrome; esto evita
+    # la regresión. El nombre solo va en el popup, como nodo DOM (enlace).
+    crear.comercio()
+    html = client.get("/").content.decode()
+    assert "bindTooltip(c.nombre)" not in html and "bindPopup(c.nombre)" not in html
+    assert "bindPopup(enlace(c))" in html
